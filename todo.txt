@@ -1,0 +1,3 @@
+cambiar tiempo de login en el auth controller cuando se crea el jwt
+hacer que se envie email de verificación de verdad
+falta endpoint a ofertas per si ets admin aceptar ses ofertas revisadas
