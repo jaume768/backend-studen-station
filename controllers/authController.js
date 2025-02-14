@@ -9,6 +9,7 @@ const defaultClient = SibApiV3Sdk.ApiClient.instance;
 defaultClient.authentications['api-key'].apiKey = process.env.BREVO_API_KEY;
 
 const pendingRegistrations = {};
+const pendingResetRequests = {};
 
 const generateVerificationCode = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
