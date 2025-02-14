@@ -11,6 +11,14 @@ router.post('/register', upload.single('profilePicture'), authController.registe
 // Login local
 router.post('/login', authController.login);
 
+router.post('/forgot-password', authController.forgotPassword);
+
+// Endpoint para verificar el código recibido
+router.post('/verify-forgot-code', authController.verifyForgotCode);
+
+// Endpoint para restablecer la contraseña
+router.post('/reset-password', authController.resetPassword);
+
 // Login con Google
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 

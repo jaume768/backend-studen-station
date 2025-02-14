@@ -14,6 +14,88 @@ const generateVerificationCode = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
+const sendResetEmail = (email, resetCode) => {
+    const tranEmailApi = new SibApiV3Sdk.TransactionalEmailsApi();
+    const sender = { email: "tu-email@dominio.com", name: "Study" };
+    const receivers = [{ email }];
+    tranEmailApi.sendTransacEmail({
+        sender,
+        to: receivers,
+        subject: "Restablece tu contraseña",
+        htmlContent: `<p>Tu código para restablecer la contraseña es: <strong>${resetCode}</strong></p>`,
+    })
+        .then((data) => {
+            console.log('Email de reset enviado:', data);
+        })
+        .catch((error) => {
+            console.error('Error al enviar email de reset:', error);
+        });
+};
+
+exports.forgotPassword = async (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+        return res.status(400).json({ error: "El email es requerido." });
+    }
+    const user = await User.findOne({ email });
+    if (!user) {
+        return res.status(400).json({ error: "No se encontró un usuario con ese email." });
+    }
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    pendingResetRequests[email] = {
+        code: resetCode,
+        expires: Date.now() + 3600000
+    };
+
+    sendResetEmail(email, resetCode);
+    return res.status(200).json({ message: "Email enviado con instrucciones para restablecer la contraseña." });
+};
+
+exports.verifyForgotCode = async (req, res) => {
+    const { email, code } = req.body;
+    if (!email || !code) {
+        return res.status(400).json({ error: "Email y código son requeridos." });
+    }
+    const pending = pendingResetRequests[email];
+    if (!pending) {
+        return res.status(400).json({ error: "No hay solicitud pendiente para este email." });
+    }
+    if (pending.code !== code) {
+        return res.status(400).json({ error: "Código incorrecto." });
+    }
+    if (pending.expires < Date.now()) {
+        delete pendingResetRequests[email];
+        return res.status(400).json({ error: "El código ha expirado." });
+    }
+    return res.status(200).json({ message: "Código verificado. Puedes restablecer tu contraseña." });
+};
+
+exports.resetPassword = async (req, res) => {
+    const { email, code, newPassword } = req.body;
+    if (!email || !code || !newPassword) {
+        return res.status(400).json({ error: "Email, código y nueva contraseña son requeridos." });
+    }
+    const pending = pendingResetRequests[email];
+    if (!pending) {
+        return res.status(400).json({ error: "No hay solicitud pendiente para este email." });
+    }
+    if (pending.code !== code) {
+        return res.status(400).json({ error: "Código incorrecto." });
+    }
+    if (pending.expires < Date.now()) {
+        delete pendingResetRequests[email];
+        return res.status(400).json({ error: "El código ha expirado." });
+    }
+    try {
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await User.findOneAndUpdate({ email }, { password: hashedPassword });
+        delete pendingResetRequests[email];
+        return res.status(200).json({ message: "Contraseña actualizada exitosamente." });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+};
+
 const sendVerificationEmail = (email, verificationCode) => {
     const tranEmailApi = new SibApiV3Sdk.TransactionalEmailsApi();
     const sender = { email: "jaumefernandezsunyer12@gmail.com", name: "Study" };
