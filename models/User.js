@@ -34,6 +34,8 @@ const UserSchema = new mongoose.Schema({
     agencyName: { type: String },            // Para Agencia: nombre de la compañía o agencia
     agencyServices: { type: String },        // Para Agencia: servicios que ofrece (puede ser una lista en cadena)
     website: { type: String },               // Enlace web o sitio (común para ambos tipos)
+    showNameCompany: { type: Boolean},
+    showFoundingYearCompany: { type: Boolean},
 
     // Información de perfil
     profile: {
