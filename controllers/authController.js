@@ -315,15 +315,14 @@ exports.login = (req, res, next) => {
 };
 
 exports.googleCallback = (req, res) => {
-    // Si el usuario se autenticó con Google pero aún no completó su perfil,
-    // redirigirlo a una página para completar el registro.
-    if (req.user && !req.user.profileCompleted) {
-        return res.redirect('/completar-registro');
-    }
-    // Generar token JWT para el usuario autenticado
     const token = jwt.sign({ id: req.user._id, email: req.user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    res.redirect(`/dashboard?token=${token}`);
-};
+    
+    if (req.user.profileCompleted) {
+      return res.redirect(`https://frontend-student-station-production.up.railway.app/ControlPanel?token=${token}`);
+    } else {
+      return res.redirect(`https://frontend-student-station-production.up.railway.app/complete-registration?token=${token}`);
+    }
+  };
 
 exports.logout = (req, res) => {
     req.logout();

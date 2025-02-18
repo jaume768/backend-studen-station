@@ -30,15 +30,23 @@ passport.use(new GoogleStrategy({
 },
     async (accessToken, refreshToken, profile, done) => {
         try {
-            let user = await User.findOne({ googleId: profile.id });
-            if (!user) {
+            let user = await User.findOne({ email: profile.emails[0].value });
+            if (user) {
+                if (!user.googleId) {
+                    user.googleId = profile.id;
+                    user.isVerified = true;
+                    await user.save();
+                }
+            } else {
                 user = new User({
                     googleId: profile.id,
                     email: profile.emails[0].value,
                     username: profile.displayName,
                     profile: {
                         profilePicture: profile.photos && profile.photos.length > 0 ? profile.photos[0].value : ''
-                    }
+                    },
+                    isVerified: true,
+                    profileCompleted: false
                 });
                 await user.save();
             }
