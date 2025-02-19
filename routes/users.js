@@ -13,7 +13,7 @@ router.get('/profile', ensureAuthenticated, userController.getProfile);
 router.post('/check-availability', userController.checkAvailability);
 
 // Actualizar perfil
-router.put('/profile', ensureAuthenticated, userController.updateProfile);
+router.put('/profile', ensureAuthenticated, upload.single('profilePicture'), userController.updateProfile);
 
 router.delete('/profile', ensureAuthenticated, userController.deleteProfile);
 router.get('/favorites', ensureAuthenticated, userController.getFavorites);
