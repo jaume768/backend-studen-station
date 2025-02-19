@@ -1,5 +1,6 @@
 const User = require('../models/User');
-const cloudinary = require('../config/cloudinary');
+const cloudinary = require('../config/claudinary');
+const streamifier = require('streamifier');
 
 exports.getProfile = async (req, res) => {
     try {
@@ -44,24 +45,48 @@ exports.updateProfile = async (req, res) => {
     try {
         let updates = {};
 
-        if (req.file) {
-            const result = await new Promise((resolve, reject) => {
-                const uploadStream = cloudinary.uploader.upload_stream(
-                    { folder: 'profile_pictures' },
-                    (error, result) => {
-                        if (error) return reject(error);
-                        resolve(result);
-                    }
-                );
-                uploadStream.end(req.file.buffer);
-            });
-            updates['profile.profilePicture'] = result.secure_url;
-        }
-
         const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true });
         res.status(200).json({ message: 'Perfil actualizado', user });
     } catch (error) {
         console.log(error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.updateProfilePicture = async (req, res) => {
+    
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file provided' });
+    }
+
+    try {
+        const streamUpload = (req) => {
+            return new Promise((resolve, reject) => {
+                const stream = cloudinary.uploader.upload_stream(
+                    { folder: 'profile_pictures' },
+                    (error, result) => {
+                        if (result) {
+                            resolve(result);
+                        } else {
+                            reject(error);
+                        }
+                    }
+                );
+                streamifier.createReadStream(req.file.buffer).pipe(stream);
+            });
+        };
+
+        const result = await streamUpload(req);
+
+        const updatedUser = await User.findByIdAndUpdate(
+            req.user.id,
+            { 'profile.profilePicture': result.secure_url },
+            { new: true }
+        );
+
+        res.status(200).json({ message: 'Foto actualizada', user: updatedUser });
+    } catch (error) {
+        console.error(error);
         res.status(500).json({ error: error.message });
     }
 };
