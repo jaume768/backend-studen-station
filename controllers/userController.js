@@ -1,5 +1,5 @@
 const User = require('../models/User');
-const cloudinary = require('../config/claudinary');
+const cloudinary = require('../config/cloudinary');
 const streamifier = require('streamifier');
 
 exports.getProfile = async (req, res) => {
@@ -54,7 +54,7 @@ exports.updateProfile = async (req, res) => {
 };
 
 exports.updateProfilePicture = async (req, res) => {
-    
+
     if (!req.file) {
         return res.status(400).json({ error: 'No file provided' });
     }
