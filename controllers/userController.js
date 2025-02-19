@@ -43,7 +43,7 @@ exports.checkAvailability = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
     try {
-        let updates = {};
+        const updates = req.body;
 
         const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true });
         res.status(200).json({ message: 'Perfil actualizado', user });
