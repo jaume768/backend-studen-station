@@ -40,8 +40,23 @@ exports.checkAvailability = async (req, res) => {
 };
 
 exports.updateProfile = async (req, res) => {
-    const updates = req.body;
     try {
+        let updates = {};
+
+        if (req.file) {
+            const result = await new Promise((resolve, reject) => {
+                const uploadStream = cloudinary.uploader.upload_stream(
+                    { folder: 'profile_pictures' },
+                    (error, result) => {
+                        if (error) return reject(error);
+                        resolve(result);
+                    }
+                );
+                uploadStream.end(req.file.buffer);
+            });
+            updates['profile.profilePicture'] = result.secure_url;
+        }
+
         const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true });
         res.status(200).json({ message: 'Perfil actualizado', user });
     } catch (error) {

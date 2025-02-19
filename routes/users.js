@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const { ensureAuthenticated } = require('../middlewares/auth');
+const multer = require('multer');
+
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 // Obtener perfil del usuario autenticado
 router.get('/profile', ensureAuthenticated, userController.getProfile);
