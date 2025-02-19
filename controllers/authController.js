@@ -318,7 +318,7 @@ exports.googleCallback = (req, res) => {
     const token = jwt.sign({ id: req.user._id, email: req.user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     if (req.user.profileCompleted) {
-        return res.redirect(`https://frontend-student-station-production.up.railway.app/ControlPanel?token=${token}`);
+        return res.redirect(`https://frontend-student-station-production.up.railway.app/token-handler?token=${token}`);
     } else {
         return res.redirect(`https://frontend-student-station-production.up.railway.app/complete-registration?token=${token}`);
     }
