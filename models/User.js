@@ -12,6 +12,7 @@ const UserSchema = new mongoose.Schema({
     city: { type: String},
     referralSource: { type: String }, // ¿Cómo nos has conocido?
     termsAccepted: { type: Boolean},
+    biography: { type: String },
 
     // Campos específicos para Creativos
     // creativeType: 1 (Estudiantes), 2 (Graduados), 3 (Estilistas), 4 (Diseñador de marca propia), 5 (Otro)
