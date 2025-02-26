@@ -9,9 +9,9 @@ const UserSchema = new mongoose.Schema({
     role: { type: String, enum: ['Creativo', 'Profesional'] },
     dateOfBirth: { type: Date },
     country: { type: String },
-    city: { type: String},
+    city: { type: String },
     referralSource: { type: String }, // ¿Cómo nos has conocido?
-    termsAccepted: { type: Boolean},
+    termsAccepted: { type: Boolean },
     biography: { type: String },
 
     // Campos específicos para Creativos
@@ -35,8 +35,8 @@ const UserSchema = new mongoose.Schema({
     agencyName: { type: String },            // Para Agencia: nombre de la compañía o agencia
     agencyServices: { type: String },        // Para Agencia: servicios que ofrece (puede ser una lista en cadena)
     website: { type: String },               // Enlace web o sitio (común para ambos tipos)
-    showNameCompany: { type: Boolean},
-    showFoundingYearCompany: { type: Boolean},
+    showNameCompany: { type: Boolean },
+    showFoundingYearCompany: { type: Boolean },
 
     // Información de perfil
     profile: {
@@ -57,6 +57,28 @@ const UserSchema = new mongoose.Schema({
             currentlyEnrolled: { type: Boolean }
         }
     ],
+    skills: { type: [String], default: [] },
+    software: { type: [String], default: [] },
+    contract: {
+        practicas: { type: Boolean, default: false },
+        tiempoCompleto: { type: Boolean, default: false },
+        parcial: { type: Boolean, default: false }
+    },
+    locationType: {
+        presencial: { type: Boolean, default: false },
+        remoto: { type: Boolean, default: false },
+        hibrido: { type: Boolean, default: false }
+    },
+    social: {
+        emailContacto: { type: String, default: "" },
+        sitioWeb: { type: String, default: "" },
+        instagram: { type: String, default: "" },
+        linkedin: { type: String, default: "" },
+        behance: { type: String, default: "" },
+        tumblr: { type: String, default: "" },
+        youtube: { type: String, default: "" },
+        pinterest: { type: String, default: "" }
+    },
 
     // Indica si el usuario completó su perfil en el dashboard (lo que se "publica" en el buscador)
     profileCompleted: { type: Boolean, default: false },
