@@ -47,6 +47,16 @@ const UserSchema = new mongoose.Schema({
             linkedin: { type: String }
         }
     },
+    education: [
+        {
+            institution: { type: String },
+            otherInstitution: { type: String },
+            formationName: { type: String },
+            formationStart: { type: Date },
+            formationEnd: { type: Date },
+            currentlyEnrolled: { type: Boolean }
+        }
+    ],
 
     // Indica si el usuario completó su perfil en el dashboard (lo que se "publica" en el buscador)
     profileCompleted: { type: Boolean, default: false },
