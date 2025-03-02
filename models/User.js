@@ -80,6 +80,17 @@ const UserSchema = new mongoose.Schema({
         pinterest: { type: String, default: "" }
     },
 
+    professionalFormation: [
+        {
+            trainingName: { type: String },
+            institution: { type: String },
+            trainingStart: { type: Date },
+            trainingEnd: { type: Date },
+            currentlyInProgress: { type: Boolean }
+        }
+    ],
+
+
     // Indica si el usuario completó su perfil en el dashboard (lo que se "publica" en el buscador)
     profileCompleted: { type: Boolean, default: false },
     favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
