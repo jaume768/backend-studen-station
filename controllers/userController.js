@@ -6,7 +6,9 @@ const bcrypt = require('bcryptjs');
 exports.getProfile = async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
-        res.status(200).json(user);
+        const userObj = user.toObject();
+        userObj.hasPassword = !!(user.password && user.password.trim() !== "");
+        res.status(200).json(userObj);
     } catch (error) {
         console.log(error);
         res.status(500).json({ error: error.message });
