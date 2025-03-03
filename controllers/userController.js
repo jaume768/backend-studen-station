@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const cloudinary = require('../config/cloudinary');
 const streamifier = require('streamifier');
+const bcrypt = require('bcryptjs');
 
 exports.getProfile = async (req, res) => {
     try {
@@ -36,6 +37,42 @@ exports.checkAvailability = async (req, res) => {
         }
 
         return res.status(200).json({ message: 'Disponible' });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+};
+
+exports.changePassword = async (req, res) => {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    if (!newPassword || !confirmPassword) {
+        return res
+            .status(400)
+            .json({ error: "Nueva contraseña y su confirmación son requeridas." });
+    }
+    if (newPassword !== confirmPassword) {
+        return res.status(400).json({ error: "Las contraseñas nuevas no coinciden." });
+    }
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ error: "Usuario no encontrado." });
+        }
+        if (user.googleId && (!user.password || user.password === "")) {
+        } else {
+            if (!currentPassword) {
+                return res.status(400).json({ error: "La contraseña actual es requerida." });
+            }
+            const isMatch = await bcrypt.compare(currentPassword, user.password);
+            if (!isMatch) {
+                return res.status(400).json({ error: "La contraseña actual es incorrecta." });
+            }
+        }
+        // Hasheamos la nueva contraseña y actualizamos el usuario
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        user.password = hashedPassword;
+        await user.save();
+        return res.status(200).json({ message: "Contraseña cambiada exitosamente." });
     } catch (error) {
         return res.status(500).json({ error: error.message });
     }
