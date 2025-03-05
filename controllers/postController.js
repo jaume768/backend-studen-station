@@ -1,26 +1,48 @@
 const Post = require('../models/Post');
 const cloudinary = require('../config/cloudinary');
+const streamifier = require('streamifier');
 
 exports.createPost = async (req, res) => {
     try {
-        let imageUrl = '';
-        if (req.file) {
-            const result = await cloudinary.uploader.upload(req.file.path, { folder: 'posts' });
-            imageUrl = result.secure_url;
-        }
-        let tags = [];
-        if (req.body.tags) {
-            if (typeof req.body.tags === 'string') {
-                tags = req.body.tags.split(',').map(tag => tag.trim());
-            } else if (Array.isArray(req.body.tags)) {
-                tags = req.body.tags;
+        let imageUrls = [];
+        if (req.files && req.files.length > 0) {
+            // Procesamos cada imagen
+            for (const file of req.files) {
+                const streamUpload = (file) => {
+                    return new Promise((resolve, reject) => {
+                        const stream = cloudinary.uploader.upload_stream(
+                            { folder: 'posts' },
+                            (error, result) => {
+                                if (result) resolve(result);
+                                else reject(error);
+                            }
+                        );
+                        streamifier.createReadStream(file.buffer).pipe(stream);
+                    });
+                };
+                const result = await streamUpload(file);
+                imageUrls.push(result.secure_url);
             }
         }
+        // Procesar etiquetas y demás datos enviados (convertir de JSON)
+        const peopleTags = req.body.peopleTags ? JSON.parse(req.body.peopleTags) : [];
+        const imageTags = req.body.imageTags ? JSON.parse(req.body.imageTags) : {};
+        // Para etiquetas simples (si las usas), podrías hacer algo similar:
+        const tags = req.body.tags
+            ? (typeof req.body.tags === 'string'
+                ? req.body.tags.split(',').map((tag) => tag.trim())
+                : req.body.tags)
+            : [];
+
         const newPost = new Post({
             user: req.user.id,
+            title: req.body.title,
             description: req.body.description,
-            imageUrl,
+            images: imageUrls,
+            mainImage: imageUrls[0] || '', // La primera imagen como principal
             tags,
+            peopleTags,
+            imageTags,
         });
         await newPost.save();
         res.status(201).json({ message: 'Post creado', post: newPost });

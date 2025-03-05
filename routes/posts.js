@@ -6,7 +6,7 @@ const multer = require('multer');
 const upload = multer({ dest: 'uploads/' }); // Configuración básica de Multer
 
 // Crear post (con o sin imagen)
-router.post('/', ensureAuthenticated, upload.single('image'), postController.createPost);
+router.post('/', ensureAuthenticated, upload.array('images'), postController.createPost);
 
 router.get('/home', postController.getRandomPosts);
 
