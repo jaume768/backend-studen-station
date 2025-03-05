@@ -3,7 +3,8 @@ const router = express.Router();
 const postController = require('../controllers/postController');
 const { ensureAuthenticated } = require('../middlewares/auth');
 const multer = require('multer');
-const upload = multer({ dest: 'uploads/' }); // Configuración básica de Multer
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 // Crear post (con o sin imagen)
 router.post('/', ensureAuthenticated, upload.array('images'), postController.createPost);
