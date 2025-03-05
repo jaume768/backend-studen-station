@@ -19,6 +19,8 @@ router.put('/:id', ensureAuthenticated, upload.single('image'), postController.u
 
 router.delete('/:id', ensureAuthenticated, postController.deletePost);
 
+router.get('/user', ensureAuthenticated, postController.getUserPosts);
+
 router.get('/staff-picks', postController.getStaffPicks);
 router.put('/:id/staff-pick', ensureAuthenticated, postController.addStaffPick);
 router.delete('/:id/staff-pick', ensureAuthenticated, postController.removeStaffPick);
