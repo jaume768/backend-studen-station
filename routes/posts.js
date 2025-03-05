@@ -9,6 +9,8 @@ const upload = multer({ storage });
 // Crear post (con o sin imagen)
 router.post('/', ensureAuthenticated, upload.array('images'), postController.createPost);
 
+router.get('/user', ensureAuthenticated, postController.getUserPosts);
+
 router.get('/home', postController.getRandomPosts);
 
 router.get('/tags/:tag', postController.getPostsByTag);
@@ -18,8 +20,6 @@ router.get('/:id', ensureAuthenticated, postController.getPostById);
 router.put('/:id', ensureAuthenticated, upload.single('image'), postController.updatePost);
 
 router.delete('/:id', ensureAuthenticated, postController.deletePost);
-
-router.get('/user', ensureAuthenticated, postController.getUserPosts);
 
 router.get('/staff-picks', postController.getStaffPicks);
 router.put('/:id/staff-pick', ensureAuthenticated, postController.addStaffPick);
