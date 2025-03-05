@@ -54,10 +54,11 @@ exports.createPost = async (req, res) => {
 exports.getUserPosts = async (req, res) => {
     try {
         const userId = req.user.id || req.user._id;
+        console.log(userId);
         const posts = await Post.find({ user: userId }).sort({ createdAt: -1 });
         res.status(200).json({ posts });
     } catch (error) {
-        console.error("Error en getUserPosts:", error);
+        console.log("Error en getUserPosts:", error);
         res.status(500).json({ error: error.message });
     }
 };
