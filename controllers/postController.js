@@ -53,9 +53,11 @@ exports.createPost = async (req, res) => {
 
 exports.getUserPosts = async (req, res) => {
     try {
-        const posts = await Post.find({ user: req.user.id }).sort({ createdAt: -1 });
+        const userId = req.user.id || req.user._id;
+        const posts = await Post.find({ user: userId }).sort({ createdAt: -1 });
         res.status(200).json({ posts });
     } catch (error) {
+        console.error("Error en getUserPosts:", error);
         res.status(500).json({ error: error.message });
     }
 };
