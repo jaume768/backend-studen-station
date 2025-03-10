@@ -31,6 +31,7 @@ app.use(passport.session());
 // Rutas
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/folders', require('./routes/folders'));
 app.use('/api/posts', require('./routes/posts'));
 
 app.use((err, req, res, next) => {
