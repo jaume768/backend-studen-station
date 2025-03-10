@@ -14,6 +14,7 @@ router.post('/check-availability', userController.checkAvailability);
 
 // Actualizar perfil
 router.put('/profile', ensureAuthenticated, userController.updateProfile);
+router.get('/profile/:username', userController.getProfileByUsername);
 router.put('/change-password', ensureAuthenticated, userController.changePassword);
 
 router.put('/profile-picture', ensureAuthenticated, upload.single('file'), userController.updateProfilePicture);

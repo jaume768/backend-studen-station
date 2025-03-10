@@ -209,3 +209,25 @@ exports.getSavedOffers = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+exports.getProfileByUsername = async (req, res) => {
+    try {
+        const { username } = req.params;
+
+        if (!username) {
+            return res.status(400).json({ error: 'Se requiere un nombre de usuario' });
+        }
+
+        // Buscar al usuario por nombre de usuario
+        const user = await User.findOne({ username }).select('-password -email -__v');
+
+        if (!user) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        res.status(200).json(user);
+    } catch (error) {
+        console.error('Error al obtener perfil por nombre de usuario:', error);
+        res.status(500).json({ error: 'Error al obtener el perfil del usuario' });
+    }
+};
