@@ -213,21 +213,193 @@ exports.getSavedOffers = async (req, res) => {
 exports.getProfileByUsername = async (req, res) => {
     try {
         const { username } = req.params;
-
-        if (!username) {
-            return res.status(400).json({ error: 'Se requiere un nombre de usuario' });
-        }
-
-        // Buscar al usuario por nombre de usuario
-        const user = await User.findOne({ username }).select('-password -email -__v');
+        const user = await User.findOne({ username }).select('-password');
 
         if (!user) {
             return res.status(404).json({ error: 'Usuario no encontrado' });
         }
 
-        res.status(200).json(user);
+        // Verificar si el usuario autenticado sigue a este perfil
+        let isFollowing = false;
+        if (req.user) {
+            const currentUser = await User.findById(req.user.id);
+            if (currentUser) {
+                isFollowing = currentUser.following.includes(user._id);
+            }
+        }
+
+        // Contar seguidores y seguidos
+        const followingCount = user.following ? user.following.length : 0;
+        const followersCount = user.followers ? user.followers.length : 0;
+
+        const userProfile = user.toObject();
+        userProfile.isFollowing = isFollowing;
+        userProfile.followingCount = followingCount;
+        userProfile.followersCount = followersCount;
+
+        res.status(200).json(userProfile);
     } catch (error) {
-        console.error('Error al obtener perfil por nombre de usuario:', error);
-        res.status(500).json({ error: 'Error al obtener el perfil del usuario' });
+        console.error('Error al obtener perfil por username:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Seguir a un usuario
+exports.followUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        // Verificar que el usuario a seguir existe
+        const userToFollow = await User.findById(userId);
+        if (!userToFollow) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        // Verificar que no se está intentando seguir a sí mismo
+        if (userId === req.user.id) {
+            return res.status(400).json({ error: 'No puedes seguirte a ti mismo' });
+        }
+
+        // Verificar si ya está siguiendo a este usuario
+        const currentUser = await User.findById(req.user.id);
+        if (currentUser.following.includes(userId)) {
+            return res.status(400).json({ error: 'Ya estás siguiendo a este usuario' });
+        }
+
+        // Añadir al usuario a seguir en la lista de following del usuario actual
+        await User.findByIdAndUpdate(req.user.id, {
+            $push: { following: userId }
+        });
+
+        // Añadir al usuario actual en la lista de followers del usuario a seguir
+        await User.findByIdAndUpdate(userId, {
+            $push: { followers: req.user.id }
+        });
+
+        res.status(200).json({ message: 'Usuario seguido correctamente' });
+    } catch (error) {
+        console.error('Error al seguir usuario:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Dejar de seguir a un usuario
+exports.unfollowUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        // Verificar que el usuario a dejar de seguir existe
+        const userToUnfollow = await User.findById(userId);
+        if (!userToUnfollow) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        // Verificar si realmente está siguiendo a este usuario
+        const currentUser = await User.findById(req.user.id);
+        if (!currentUser.following.includes(userId)) {
+            return res.status(400).json({ error: 'No estás siguiendo a este usuario' });
+        }
+
+        // Eliminar al usuario de la lista de following del usuario actual
+        await User.findByIdAndUpdate(req.user.id, {
+            $pull: { following: userId }
+        });
+
+        // Eliminar al usuario actual de la lista de followers del usuario a dejar de seguir
+        await User.findByIdAndUpdate(userId, {
+            $pull: { followers: req.user.id }
+        });
+
+        res.status(200).json({ message: 'Has dejado de seguir al usuario correctamente' });
+    } catch (error) {
+        console.error('Error al dejar de seguir usuario:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Obtener la lista de usuarios que el usuario actual sigue
+exports.getFollowing = async (req, res) => {
+    try {
+        // Parámetros para paginación
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        // Obtener el usuario con la lista de following y popula la información básica de cada usuario
+        const user = await User.findById(req.user.id)
+            .select('following')
+            .populate({
+                path: 'following',
+                select: 'username fullName professionalTitle city country profile role',
+                options: {
+                    limit: limit,
+                    skip: skip
+                }
+            });
+
+        // Contar el total de usuarios seguidos para la paginación
+        const count = await User.findById(req.user.id);
+        const totalFollowing = count.following.length;
+
+        res.status(200).json({
+            following: user.following,
+            totalFollowing,
+            currentPage: page,
+            totalPages: Math.ceil(totalFollowing / limit)
+        });
+    } catch (error) {
+        console.error('Error al obtener usuarios seguidos:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Obtener la lista de usuarios que siguen al usuario actual
+exports.getFollowers = async (req, res) => {
+    try {
+        // Parámetros para paginación
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        // Obtener el usuario con la lista de followers y popula la información básica de cada usuario
+        const user = await User.findById(req.user.id)
+            .select('followers')
+            .populate({
+                path: 'followers',
+                select: 'username fullName professionalTitle city country profile role',
+                options: {
+                    limit: limit,
+                    skip: skip
+                }
+            });
+
+        // Contar el total de seguidores para la paginación
+        const count = await User.findById(req.user.id);
+        const totalFollowers = count.followers.length;
+
+        res.status(200).json({
+            followers: user.followers,
+            totalFollowers,
+            currentPage: page,
+            totalPages: Math.ceil(totalFollowers / limit)
+        });
+    } catch (error) {
+        console.error('Error al obtener seguidores:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Verificar si el usuario actual sigue a otro usuario
+exports.checkFollow = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const currentUser = await User.findById(req.user.id);
+        const isFollowing = currentUser.following.includes(userId);
+
+        res.status(200).json({ isFollowing });
+    } catch (error) {
+        console.error('Error al verificar seguimiento:', error);
+        res.status(500).json({ error: error.message });
     }
 };

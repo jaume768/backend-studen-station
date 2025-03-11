@@ -99,6 +99,9 @@ const UserSchema = new mongoose.Schema({
     isVerified: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
     savedOffers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Offer' }],
+    // Seguidos y seguidores
+    following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 });
 
 module.exports = mongoose.model('User', UserSchema);

@@ -29,4 +29,11 @@ router.post('/saved-offers/:offerId', ensureAuthenticated, userController.saveOf
 router.delete('/saved-offers/:offerId', ensureAuthenticated, userController.removeSavedOffer);
 router.get('/saved-offers', ensureAuthenticated, userController.getSavedOffers);
 
+// Rutas para seguir/dejar de seguir usuarios
+router.post('/follow/:userId', ensureAuthenticated, userController.followUser);
+router.delete('/follow/:userId', ensureAuthenticated, userController.unfollowUser);
+router.get('/following', ensureAuthenticated, userController.getFollowing);
+router.get('/followers', ensureAuthenticated, userController.getFollowers);
+router.get('/check-follow/:userId', ensureAuthenticated, userController.checkFollow);
+
 module.exports = router;
