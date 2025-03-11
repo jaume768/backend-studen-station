@@ -11,6 +11,9 @@ router.post('/', ensureAuthenticated, upload.array('images'), postController.cre
 
 router.get('/user', ensureAuthenticated, postController.getUserPosts);
 
+// Obtener posts por nombre de usuario
+router.get('/user/:username', postController.getPostsByUsername);
+
 router.get('/home', postController.getRandomPosts);
 
 router.get('/tags/:tag', postController.getPostsByTag);
