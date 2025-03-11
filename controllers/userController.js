@@ -219,12 +219,12 @@ exports.getProfileByUsername = async (req, res) => {
             return res.status(404).json({ error: 'Usuario no encontrado' });
         }
 
-        // Verificar si el usuario autenticado sigue a este perfil
+        // Verificar si el usuario autenticado sigue a este perfil (comparación con toString)
         let isFollowing = false;
         if (req.user) {
             const currentUser = await User.findById(req.user.id);
             if (currentUser) {
-                isFollowing = currentUser.following.includes(user._id);
+                isFollowing = currentUser.following.some(f => f.toString() === user._id.toString());
             }
         }
 
@@ -260,9 +260,9 @@ exports.followUser = async (req, res) => {
             return res.status(400).json({ error: 'No puedes seguirte a ti mismo' });
         }
 
-        // Verificar si ya está siguiendo a este usuario
+        // Verificar si ya está siguiendo a este usuario (conversión a string)
         const currentUser = await User.findById(req.user.id);
-        if (currentUser.following.includes(userId)) {
+        if (currentUser.following.some(f => f.toString() === userId)) {
             return res.status(400).json({ error: 'Ya estás siguiendo a este usuario' });
         }
 
@@ -294,9 +294,9 @@ exports.unfollowUser = async (req, res) => {
             return res.status(404).json({ error: 'Usuario no encontrado' });
         }
 
-        // Verificar si realmente está siguiendo a este usuario
+        // Verificar si realmente está siguiendo a este usuario (conversión a string)
         const currentUser = await User.findById(req.user.id);
-        if (!currentUser.following.includes(userId)) {
+        if (!currentUser.following.some(f => f.toString() === userId)) {
             return res.status(400).json({ error: 'No estás siguiendo a este usuario' });
         }
 
@@ -393,10 +393,9 @@ exports.getFollowers = async (req, res) => {
 exports.checkFollow = async (req, res) => {
     try {
         const { userId } = req.params;
-
         const currentUser = await User.findById(req.user.id);
-        const isFollowing = currentUser.following.includes(userId);
-
+        // Convertir cada elemento a string para comparar correctamente
+        const isFollowing = currentUser.following.some(f => f.toString() === userId);
         res.status(200).json({ isFollowing });
     } catch (error) {
         console.error('Error al verificar seguimiento:', error);
