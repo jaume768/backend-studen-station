@@ -231,3 +231,69 @@ exports.getPostsByUsername = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+// Obtener imágenes aleatorias de posts
+exports.getRandomPostImages = async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
+
+        // Obtener posts con múltiples imágenes
+        const posts = await Post.find({ images: { $exists: true, $ne: [] } })
+            .populate({
+                path: 'user',
+                select: 'username profile city country'
+            })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit * 2); // Obtenemos más posts para tener suficientes imágenes
+
+        // Generar un array de objetos imagen con información del post asociado
+        let postImages = [];
+        
+        posts.forEach(post => {
+            // Para cada imagen en el post, crear un objeto con la imagen y los datos del post
+            post.images.forEach(imageUrl => {
+                postImages.push({
+                    imageUrl,
+                    postId: post._id,
+                    postTitle: post.title,
+                    user: {
+                        username: post.user.username,
+                        profilePicture: post.user.profile?.profilePicture || null,
+                        city: post.user.city || null,
+                        country: post.user.country || null
+                    },
+                    peopleTags: post.peopleTags || []
+                });
+            });
+        });
+
+        // Aleatorizar el orden de las imágenes
+        postImages = postImages.sort(() => Math.random() - 0.5);
+        
+        // Limitar al número solicitado
+        postImages = postImages.slice(0, limit);
+
+        // Determinar si hay más páginas
+        const totalImages = await Post.aggregate([
+            { $match: { images: { $exists: true, $ne: [] } } },
+            { $project: { imageCount: { $size: "$images" } } },
+            { $group: { _id: null, total: { $sum: "$imageCount" } } }
+        ]);
+        
+        const totalCount = totalImages.length > 0 ? totalImages[0].total : 0;
+        const hasMore = totalCount > skip + postImages.length;
+
+        res.status(200).json({ 
+            images: postImages,
+            page,
+            hasMore,
+            totalCount
+        });
+    } catch (error) {
+        console.error("Error al obtener imágenes aleatorias:", error);
+        res.status(500).json({ error: error.message });
+    }
+};

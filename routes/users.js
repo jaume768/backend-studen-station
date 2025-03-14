@@ -36,5 +36,6 @@ router.get('/following', ensureAuthenticated, userController.getFollowing);
 router.get('/followers', ensureAuthenticated, userController.getFollowers);
 router.get('/check-follow/:userId', ensureAuthenticated, userController.checkFollow);
 router.get('/searchUsers', ensureAuthenticated, userController.searchUsers);
+router.get('/creatives', userController.getCreatives);
 
 module.exports = router;

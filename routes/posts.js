@@ -17,6 +17,9 @@ router.get('/user/:username', postController.getPostsByUsername);
 // Obtener posts aleatorios
 router.get('/home', postController.getRandomPosts);
 
+// Obtener imágenes aleatorias de posts
+router.get('/random-images', postController.getRandomPostImages);
+
 // Obtener posts por tag
 router.get('/tags/:tag', postController.getPostsByTag);
 

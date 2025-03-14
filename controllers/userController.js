@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Post = require('../models/Post');
 const cloudinary = require('../config/cloudinary');
 const streamifier = require('streamifier');
 const bcrypt = require('bcryptjs');
@@ -424,5 +425,70 @@ exports.searchUsers = async (req, res) => {
     } catch (error) {
         console.error('Error buscando usuarios:', error);
         return res.status(500).json({ message: 'Error interno del servidor' });
+    }
+};
+
+// Obtener usuarios creativos (con su último post)
+exports.getCreatives = async (req, res) => {
+    try {
+        const { page = 1, limit = 9, country, category } = req.query;
+        const pageNumber = parseInt(page);
+        const limitNumber = parseInt(limit);
+        const skip = (pageNumber - 1) * limitNumber;
+
+        // Construir el filtro base
+        let filter = { isActive: true };
+        
+        // Aplicar filtros adicionales si se proporcionan
+        if (country) {
+            filter.country = country;
+        }
+        
+        // Buscar usuarios
+        const users = await User.find(filter)
+            .select('username fullName country professionalTitle profile.profilePicture')
+            .skip(skip)
+            .limit(limitNumber)
+            .lean();
+        
+        // Contar el total de usuarios para la paginación
+        const total = await User.countDocuments(filter);
+        
+        // Para cada usuario, buscar su último post
+        const usersWithLastPost = await Promise.all(users.map(async (user) => {
+            // Buscar el último post del usuario, filtrando por categoría si es necesario
+            const postFilter = { user: user._id };
+            if (category) {
+                postFilter.categories = { $in: [category] };
+            }
+            
+            const lastPost = await Post.findOne(postFilter)
+                .sort({ createdAt: -1 })
+                .select('mainImage title')
+                .lean();
+                
+            return {
+                ...user,
+                lastPost: lastPost || null
+            };
+        }));
+        
+        // Filtrar usuarios que no tienen posts si se especificó una categoría
+        const filteredUsers = category 
+            ? usersWithLastPost.filter(user => user.lastPost) 
+            : usersWithLastPost;
+        
+        // Obtener países únicos para el filtro
+        const countries = await User.distinct('country', { isActive: true });
+        
+        res.status(200).json({
+            creatives: filteredUsers,
+            totalPages: Math.ceil(total / limitNumber),
+            currentPage: pageNumber,
+            countries: countries.filter(c => c) // Filtrar valores nulos o vacíos
+        });
+    } catch (error) {
+        console.error('Error al obtener creativos:', error);
+        res.status(500).json({ error: 'Error al obtener creativos' });
     }
 };
