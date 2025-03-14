@@ -10,8 +10,14 @@ router.get('/', offerController.getAllOffers);
 
 // Endpoints que usan un ID (se definen después para evitar conflictos con rutas fijas)
 router.post('/', ensureAuthenticated, offerController.createOffer);
+
+// Obtener oferta por ID
 router.get('/:id', offerController.getOffer);
+
+// Actualizar oferta
 router.put('/:id', ensureAuthenticated, offerController.updateOffer);
+
+// Eliminar oferta
 router.delete('/:id', ensureAuthenticated, offerController.deleteOffer);
 
 module.exports = router;

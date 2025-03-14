@@ -11,6 +11,7 @@ router.post('/register', upload.single('profilePicture'), authController.registe
 // Login local
 router.post('/login', authController.login);
 
+// Olvidé mi contraseña
 router.post('/forgot-password', authController.forgotPassword);
 
 // Endpoint para verificar el código recibido

@@ -402,3 +402,27 @@ exports.checkFollow = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+exports.searchUsers = async (req, res) => {
+    try {
+        const { term } = req.query;
+        if (!term || term.length < 2) {
+            return res.status(400).json({ message: 'El término de búsqueda debe tener al menos 2 caracteres' });
+        }
+
+        const users = await User.find({
+            username: { $regex: term, $options: 'i' },
+            isActive: true
+        })
+            .select('username profile.profilePicture')
+            .limit(10);
+
+        return res.status(200).json({
+            users,
+            message: 'Usuarios encontrados con éxito'
+        });
+    } catch (error) {
+        console.error('Error buscando usuarios:', error);
+        return res.status(500).json({ message: 'Error interno del servidor' });
+    }
+};

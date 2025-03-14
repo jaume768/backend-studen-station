@@ -35,5 +35,6 @@ router.delete('/follow/:userId', ensureAuthenticated, userController.unfollowUse
 router.get('/following', ensureAuthenticated, userController.getFollowing);
 router.get('/followers', ensureAuthenticated, userController.getFollowers);
 router.get('/check-follow/:userId', ensureAuthenticated, userController.checkFollow);
+router.get('/searchUsers', ensureAuthenticated, userController.searchUsers);
 
 module.exports = router;
