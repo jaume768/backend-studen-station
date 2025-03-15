@@ -492,3 +492,55 @@ exports.getCreatives = async (req, res) => {
         res.status(500).json({ error: 'Error al obtener creativos' });
     }
 };
+
+exports.uploadPdf = async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ success: false, error: 'No se ha proporcionado ningún archivo' });
+    }
+
+    const { type } = req.body;
+    if (!type || (type !== 'cv' && type !== 'portfolio')) {
+        return res.status(400).json({ success: false, error: 'Tipo de documento no válido' });
+    }
+
+    try {
+        const streamUpload = (req) => {
+            return new Promise((resolve, reject) => {
+                const stream = cloudinary.uploader.upload_stream(
+                    { 
+                        folder: 'user_documents',
+                        resource_type: 'auto' // Permitir cualquier tipo de archivo
+                    },
+                    (error, result) => {
+                        if (result) {
+                            resolve(result);
+                        } else {
+                            reject(error);
+                        }
+                    }
+                );
+                streamifier.createReadStream(req.file.buffer).pipe(stream);
+            });
+        };
+
+        const result = await streamUpload(req);
+        
+        // Actualizar el campo correspondiente en el usuario
+        const updateField = type === 'cv' ? { cvUrl: result.secure_url } : { portfolioUrl: result.secure_url };
+        
+        const updatedUser = await User.findByIdAndUpdate(
+            req.user.id,
+            updateField,
+            { new: true }
+        );
+
+        res.status(200).json({ 
+            success: true, 
+            fileUrl: result.secure_url,
+            message: `${type === 'cv' ? 'CV' : 'Portfolio'} subido correctamente` 
+        });
+    } catch (error) {
+        console.error('Error al subir el archivo PDF:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+};

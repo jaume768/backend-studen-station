@@ -19,6 +19,9 @@ router.put('/change-password', ensureAuthenticated, userController.changePasswor
 
 router.put('/profile-picture', ensureAuthenticated, upload.single('file'), userController.updateProfilePicture);
 
+// Nueva ruta para subir archivos PDF
+router.post('/upload-pdf', ensureAuthenticated, upload.single('file'), userController.uploadPdf);
+
 router.delete('/profile', ensureAuthenticated, userController.deleteProfile);
 router.get('/favorites', ensureAuthenticated, userController.getFavorites);
 

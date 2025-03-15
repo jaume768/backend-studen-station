@@ -20,6 +20,9 @@ router.get('/home', postController.getRandomPosts);
 // Obtener imágenes aleatorias de posts
 router.get('/random-images', postController.getRandomPostImages);
 
+// Obtener imágenes para el explorador (sin autenticación)
+router.get('/explorer', postController.getExplorerPosts);
+
 // Obtener posts por tag
 router.get('/tags/:tag', postController.getPostsByTag);
 
