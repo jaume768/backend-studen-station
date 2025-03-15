@@ -313,7 +313,7 @@ exports.getExplorerPosts = async (req, res) => {
             })
             .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(limit * 2); // Obtenemos más posts para tener suficientes imágenes
+            .limit(limit);
 
         // Generar un array de objetos imagen con información del post asociado
         let postImages = [];
@@ -336,27 +336,21 @@ exports.getExplorerPosts = async (req, res) => {
             });
         });
 
-        // Aleatorizar el orden de las imágenes
-        postImages = postImages.sort(() => Math.random() - 0.5);
-        
-        // Limitar al número solicitado
-        postImages = postImages.slice(0, limit);
+        // Aleatorizar el orden de las imágenes solo si es la primera página
+        if (page === 1) {
+            postImages = postImages.sort(() => Math.random() - 0.5);
+        }
 
         // Determinar si hay más páginas
-        const totalImages = await Post.aggregate([
-            { $match: { images: { $exists: true, $ne: [] } } },
-            { $project: { imageCount: { $size: "$images" } } },
-            { $group: { _id: null, total: { $sum: "$imageCount" } } }
-        ]);
-        
-        const totalCount = totalImages.length > 0 ? totalImages[0].total : 0;
-        const hasMore = totalCount > skip + postImages.length;
+        const totalPosts = await Post.countDocuments({ images: { $exists: true, $ne: [] } });
+        const totalProcessedSoFar = skip + posts.length;
+        const hasMore = totalProcessedSoFar < totalPosts;
 
         res.status(200).json({ 
             images: postImages,
             page,
             hasMore,
-            totalCount
+            totalCount: totalPosts
         });
     } catch (error) {
         console.error("Error al obtener imágenes para el explorador:", error);

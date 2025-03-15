@@ -508,10 +508,11 @@ exports.uploadPdf = async (req, res) => {
             return new Promise((resolve, reject) => {
                 const stream = cloudinary.uploader.upload_stream(
                     { 
-                        folder: 'user_documents',
-                        resource_type: 'raw', 
-                        access_mode: 'public', 
-                        use_filename: true,    
+                        folder: `user_documents/${type}`,
+                        resource_type: 'auto',
+                        format: 'pdf',
+                        public_id: `${req.user.id}_${type}_${Date.now()}`,
+                        transformation: { flags: "attachment" }
                     },
                     (error, result) => {
                         if (result) {
@@ -527,16 +528,8 @@ exports.uploadPdf = async (req, res) => {
 
         const result = await streamUpload(req);
         
-        // Generar URL pública para el PDF usando el formato de Cloudinary para assets
-        const publicId = result.public_id.split('/').pop(); 
-        const assetBaseUrl = 'https://asset.cloudinary.com/';
-        const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'dv9ctetkn';
-        
-        // Generar un token de acceso basado en el public_id para mayor seguridad
-        const accessToken = result.asset_id || publicId.replace(/\.[^/.]+$/, ""); 
-        
-        // URL final en formato asset.cloudinary
-        const fileUrl = `${assetBaseUrl}${cloudName}/${accessToken}`;
+        // Usar directamente la URL segura proporcionada por Cloudinary
+        const fileUrl = result.secure_url;
         
         // Actualizar el campo correspondiente en el usuario
         const updateField = type === 'cv' ? { cvUrl: fileUrl } : { portfolioUrl: fileUrl };
