@@ -509,7 +509,9 @@ exports.uploadPdf = async (req, res) => {
                 const stream = cloudinary.uploader.upload_stream(
                     { 
                         folder: 'user_documents',
-                        resource_type: 'auto' // Permitir cualquier tipo de archivo
+                        resource_type: 'raw', 
+                        access_mode: 'public', 
+                        use_filename: true,    
                     },
                     (error, result) => {
                         if (result) {
@@ -525,8 +527,19 @@ exports.uploadPdf = async (req, res) => {
 
         const result = await streamUpload(req);
         
+        // Generar URL pública para el PDF usando el formato de Cloudinary para assets
+        const publicId = result.public_id.split('/').pop(); 
+        const assetBaseUrl = 'https://asset.cloudinary.com/';
+        const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'dv9ctetkn';
+        
+        // Generar un token de acceso basado en el public_id para mayor seguridad
+        const accessToken = result.asset_id || publicId.replace(/\.[^/.]+$/, ""); 
+        
+        // URL final en formato asset.cloudinary
+        const fileUrl = `${assetBaseUrl}${cloudName}/${accessToken}`;
+        
         // Actualizar el campo correspondiente en el usuario
-        const updateField = type === 'cv' ? { cvUrl: result.secure_url } : { portfolioUrl: result.secure_url };
+        const updateField = type === 'cv' ? { cvUrl: fileUrl } : { portfolioUrl: fileUrl };
         
         const updatedUser = await User.findByIdAndUpdate(
             req.user.id,
@@ -536,7 +549,7 @@ exports.uploadPdf = async (req, res) => {
 
         res.status(200).json({ 
             success: true, 
-            fileUrl: result.secure_url,
+            fileUrl: fileUrl,
             message: `${type === 'cv' ? 'CV' : 'Portfolio'} subido correctamente` 
         });
     } catch (error) {
