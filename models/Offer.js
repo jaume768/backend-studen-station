@@ -9,23 +9,21 @@ const OfferSchema = new mongoose.Schema({
     position: { type: String, required: true },
     publicationDate: { type: Date, default: Date.now },
     city: { type: String, required: true },
-    jobType: { type: String, enum: ['Trabajo', 'Prácticas'], required: true },
+    
+    // Tipo de trabajo y modalidad
+    jobType: { type: String, enum: ['Prácticas', 'Tiempo completo', 'Tiempo parcial'], required: true },
+    locationType: { type: String, enum: ['Presencial', 'Remoto', 'Híbrido'], required: true },
 
-    // Modalidad de la oferta:
-    // Si es externa se redirige (isExternal: true) y se guarda el enlace externo,
-    // si es interna se muestran todos los detalles
+    // Modalidad de la oferta
     isExternal: { type: Boolean, required: true, default: false },
-    externalLink: { type: String }, // Sólo si isExternal es true
+    externalLink: { type: String }, // Requerido si isExternal es true
 
-    // Datos para ofertas internas:
-    companyLogo: { type: String }, // URL de la imagen principal
-    website: { type: String },
-    description: { type: String },
-    requiredProfile: { type: String },
-    contractType: { type: String },
-    workingHours: { type: String },
+    // Datos comunes para todas las ofertas
+    companyLogo: { type: String }, // URL del logo en Cloudinary
+    description: { type: String, required: true },
+    requiredProfile: { type: String, required: true },
 
-    // Etiquetas para filtrar (por ejemplo: "oferta de trabajo", "prácticas", etc)
+    // Etiquetas para filtrar
     tags: [{ type: String }],
 
     // Estado de la oferta: 'pending', 'accepted' o 'cancelled'

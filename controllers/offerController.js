@@ -1,4 +1,6 @@
 const Offer = require('../models/Offer');
+const cloudinary = require('../config/cloudinary');
+const streamifier = require('streamifier');
 
 /**
  * Crear una nueva oferta.
@@ -6,21 +8,54 @@ const Offer = require('../models/Offer');
  */
 exports.createOffer = async (req, res) => {
     try {
-        // Verificar que el usuario sea profesional
         if (req.user.role !== 'Profesional') {
-            return res.status(403).json({ message: "No tienes permiso para crear ofertas." });
+            return res.status(403).json({ 
+                message: "No tienes permiso para crear ofertas. Solo los usuarios con rol Profesional pueden crear ofertas.",
+                userRole: req.user.role 
+            });
         }
 
-        const offerData = req.body;
-        const newOffer = new Offer({
-            ...offerData,
-            publisher: req.user._id,
-            status: 'pending'
-        });
+        let companyLogo = null;
+        if (req.file) {
+            try {
+                const result = await new Promise((resolve, reject) => {
+                    const stream = cloudinary.uploader.upload_stream(
+                        { folder: 'company_logos' },
+                        (error, result) => {
+                            if (result) resolve(result);
+                            else reject(error);
+                        }
+                    );
+                    streamifier.createReadStream(req.file.buffer).pipe(stream);
+                });
+                companyLogo = result.secure_url;
+            } catch (uploadError) {
+                console.error('Error al subir el logo:', uploadError);
+            }
+        }
 
+        const offerData = {
+            companyName: req.body.companyName,
+            position: req.body.position,
+            city: req.body.city,
+            jobType: req.body.jobType,
+            locationType: req.body.locationType,
+            isExternal: req.body.isExternal === 'true',
+            externalLink: req.body.externalLink,
+            description: req.body.description,
+            requiredProfile: req.body.requiredProfile,
+            tags: req.body.tags ? JSON.parse(req.body.tags) : [],
+            publisher: req.user.id,
+            status: 'pending',
+            companyLogo
+        };
+
+        const newOffer = new Offer(offerData);
         await newOffer.save();
+        
         res.status(201).json({ message: "Oferta creada", offer: newOffer });
     } catch (error) {
+        console.error('Error en createOffer:', error);
         res.status(500).json({ error: error.message });
     }
 };
@@ -35,6 +70,7 @@ exports.getOffer = async (req, res) => {
         if (!offer) return res.status(404).json({ message: "Oferta no encontrada." });
         res.status(200).json({ offer });
     } catch (error) {
+        console.error('Error en getOffer:', error);
         res.status(500).json({ error: error.message });
     }
 };
@@ -59,6 +95,7 @@ exports.updateOffer = async (req, res) => {
         const updatedOffer = await Offer.findByIdAndUpdate(req.params.id, req.body, { new: true });
         res.status(200).json({ message: "Oferta actualizada", offer: updatedOffer });
     } catch (error) {
+        console.error('Error en updateOffer:', error);
         res.status(500).json({ error: error.message });
     }
 };
@@ -79,6 +116,7 @@ exports.deleteOffer = async (req, res) => {
         await Offer.findByIdAndDelete(req.params.id);
         res.status(200).json({ message: "Oferta eliminada" });
     } catch (error) {
+        console.error('Error en deleteOffer:', error);
         res.status(500).json({ error: error.message });
     }
 };
@@ -105,6 +143,7 @@ exports.getAllOffers = async (req, res) => {
         const total = await Offer.countDocuments(query);
         res.status(200).json({ total, offers });
     } catch (error) {
+        console.error('Error en getAllOffers:', error);
         res.status(500).json({ error: error.message });
     }
 };
@@ -119,6 +158,7 @@ exports.getUnreviewedOffers = async (req, res) => {
             .populate('publisher', 'fullName companyName');
         res.status(200).json({ offers });
     } catch (error) {
+        console.error('Error en getUnreviewedOffers:', error);
         res.status(500).json({ error: error.message });
     }
 };
@@ -146,6 +186,7 @@ exports.searchOffers = async (req, res) => {
         const total = await Offer.countDocuments(query);
         res.status(200).json({ total, offers });
     } catch (error) {
+        console.error('Error en searchOffers:', error);
         res.status(500).json({ error: error.message });
     }
 };
@@ -161,6 +202,7 @@ exports.acceptOffer = async (req, res) => {
         await offer.save();
         res.status(200).json({ message: "Oferta aceptada", offer });
     } catch (error) {
+        console.error('Error en acceptOffer:', error);
         res.status(500).json({ error: error.message });
     }
 };
@@ -176,6 +218,7 @@ exports.cancelOffer = async (req, res) => {
         await offer.save();
         res.status(200).json({ message: "Oferta cancelada", offer });
     } catch (error) {
+        console.error('Error en cancelOffer:', error);
         res.status(500).json({ error: error.message });
     }
 };

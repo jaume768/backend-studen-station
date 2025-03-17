@@ -308,8 +308,15 @@ exports.login = (req, res, next) => {
         if (!user.isActive) return res.status(403).json({ message: 'Cuenta inactiva.' });
         if (!user.isVerified) return res.status(403).json({ message: 'Cuenta no verificada.' });
 
-        // Generar un token JWT (válido, por ejemplo, por 1 día)
-        const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        const token = jwt.sign(
+            { 
+                id: user._id, 
+                email: user.email,
+                role: user.role 
+            }, 
+            process.env.JWT_SECRET, 
+            { expiresIn: '7d' }
+        );
         return res.status(200).json({ message: 'Login exitoso', token, user });
     })(req, res, next);
 };
