@@ -11,8 +11,15 @@ router.get('/unreviewed', ensureAuthenticated, offerController.getUnreviewedOffe
 router.get('/search', offerController.searchOffers);
 router.get('/', offerController.getAllOffers);
 
-// Endpoints que usan un ID (se definen después para evitar conflictos con rutas fijas)
+// Endpoints para ofertas de trabajo
 router.post('/create', ensureAuthenticated, upload.single('logo'), offerController.createOffer);
+
+// Endpoints para ofertas educativas
+router.post('/educational', ensureAuthenticated, upload.fields([
+    { name: 'banner', maxCount: 1 },
+    { name: 'gallery', maxCount: 5 },
+    { name: 'brochure', maxCount: 1 }
+]), offerController.createEducationalOffer);
 
 // Obtener oferta por ID
 router.get('/:id', offerController.getOffer);

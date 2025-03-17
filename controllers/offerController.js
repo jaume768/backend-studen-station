@@ -1,17 +1,19 @@
 const Offer = require('../models/Offer');
+const EducationalOffer = require('../models/EducationalOffer');
 const cloudinary = require('../config/cloudinary');
 const streamifier = require('streamifier');
 
 /**
  * Crear una nueva oferta.
- * Sólo los usuarios con rol "Profesional" podrán crear ofertas.
+ * Solo los usuarios con professionalType 1, 2 o 4 pueden crear ofertas de trabajo.
  */
 exports.createOffer = async (req, res) => {
     try {
-        if (req.user.role !== 'Profesional') {
+        const allowedTypes = [1, 2, 4];
+        if (!allowedTypes.includes(req.user.professionalType)) {
             return res.status(403).json({ 
-                message: "No tienes permiso para crear ofertas. Solo los usuarios con rol Profesional pueden crear ofertas.",
-                userRole: req.user.role 
+                message: "No tienes permiso para crear ofertas de trabajo. Solo los profesionales de tipo 1, 2 o 4 pueden crear ofertas.",
+                professionalType: req.user.professionalType 
             });
         }
 
@@ -47,7 +49,8 @@ exports.createOffer = async (req, res) => {
             tags: req.body.tags ? JSON.parse(req.body.tags) : [],
             publisher: req.user.id,
             status: 'pending',
-            companyLogo
+            companyLogo,
+            publicationDate: new Date()
         };
 
         const newOffer = new Offer(offerData);
@@ -56,6 +59,117 @@ exports.createOffer = async (req, res) => {
         res.status(201).json({ message: "Oferta creada", offer: newOffer });
     } catch (error) {
         console.error('Error en createOffer:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * Crear una nueva oferta educativa.
+ * Solo los usuarios con professionalType 3 pueden crear ofertas educativas.
+ */
+exports.createEducationalOffer = async (req, res) => {
+    try {
+        if (req.user.professionalType !== 3) {
+            return res.status(403).json({ 
+                message: "No tienes permiso para crear ofertas educativas. Solo los profesionales de tipo 3 pueden crear ofertas educativas.",
+                professionalType: req.user.professionalType 
+            });
+        }
+
+        let images = [];
+        if (req.files && req.files.length > 0) {
+            try {
+                for (const file of req.files) {
+                    const result = await new Promise((resolve, reject) => {
+                        const stream = cloudinary.uploader.upload_stream(
+                            { folder: 'educational_offers' },
+                            (error, result) => {
+                                if (result) resolve(result);
+                                else reject(error);
+                            }
+                        );
+                        streamifier.createReadStream(file.buffer).pipe(stream);
+                    });
+                    images.push({
+                        url: result.secure_url,
+                        type: file.fieldname === 'banner' ? 'banner' : 'gallery'
+                    });
+                }
+            } catch (uploadError) {
+                console.error('Error al subir imágenes:', uploadError);
+            }
+        }
+
+        let brochureUrl = null;
+        if (req.files && req.files.brochure) {
+            try {
+                const result = await new Promise((resolve, reject) => {
+                    const stream = cloudinary.uploader.upload_stream(
+                        { 
+                            folder: 'educational_offers/brochures',
+                            resource_type: 'raw'
+                        },
+                        (error, result) => {
+                            if (result) resolve(result);
+                            else reject(error);
+                        }
+                    );
+                    streamifier.createReadStream(req.files.brochure[0].buffer).pipe(stream);
+                });
+                brochureUrl = result.secure_url;
+            } catch (uploadError) {
+                console.error('Error al subir el folleto:', uploadError);
+            }
+        }
+
+        const educationalOfferData = {
+            programName: req.body.programName,
+            studyType: req.body.studyType,
+            knowledgeArea: req.body.knowledgeArea,
+            modality: req.body.modality,
+            duration: {
+                value: req.body.durationValue,
+                unit: req.body.durationUnit
+            },
+            startDate: new Date(req.body.startDate),
+            endDate: req.body.endDate ? new Date(req.body.endDate) : undefined,
+            location: req.body.modality !== 'Online' ? {
+                city: req.body.city,
+                country: req.body.country,
+                address: req.body.address
+            } : undefined,
+            price: req.body.price ? {
+                amount: req.body.price,
+                currency: req.body.currency || 'EUR'
+            } : undefined,
+            requirements: req.body.requirements ? JSON.parse(req.body.requirements) : [],
+            description: req.body.description,
+            brochureUrl,
+            images,
+            socialLinks: {
+                facebook: req.body.facebook,
+                instagram: req.body.instagram,
+                twitter: req.body.twitter,
+                linkedin: req.body.linkedin,
+                website: req.body.website
+            },
+            schedule: req.body.schedule,
+            language: req.body.language,
+            availableSeats: req.body.availableSeats,
+            publisher: req.user.id,
+            status: 'pending',
+            publicationDate: new Date()
+        };
+
+        const newEducationalOffer = new EducationalOffer(educationalOfferData);
+        await newEducationalOffer.save();
+        
+        res.status(201).json({ 
+            message: "Oferta educativa creada", 
+            educationalOffer: newEducationalOffer 
+        });
+    } catch (error) {
+        console.error('Error en createEducationalOffer:', error);
         res.status(500).json({ error: error.message });
     }
 };

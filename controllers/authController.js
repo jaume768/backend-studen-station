@@ -312,7 +312,7 @@ exports.login = (req, res, next) => {
             { 
                 id: user._id, 
                 email: user.email,
-                role: user.role 
+                professionalType: user.professionalType 
             }, 
             process.env.JWT_SECRET, 
             { expiresIn: '7d' }
@@ -322,7 +322,7 @@ exports.login = (req, res, next) => {
 };
 
 exports.googleCallback = (req, res) => {
-    const token = jwt.sign({ id: req.user._id, email: req.user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: req.user._id, email: req.user.email, professionalType: req.user.professionalType }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     if (req.user.profileCompleted) {
         return res.redirect(`${process.env.FRONTEND_URL}/token-handler?token=${token}`);
