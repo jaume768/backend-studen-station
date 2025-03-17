@@ -233,28 +233,42 @@ exports.getPostsByUsername = async (req, res) => {
     }
 };
 
-// Obtener imágenes aleatorias de posts
-exports.getRandomPostImages = async (req, res) => {
+exports.getExplorerPosts = async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
-        const skip = (page - 1) * limit;
+        const viewedPostIds = req.query.exclude
+            ? req.query.exclude.split(',').filter(id => id).map(id => {
+                try {
+                    return new mongoose.Types.ObjectId(id.trim());
+                } catch (e) {
+                    return null;
+                }
+            }).filter(id => id)
+            : [];
 
-        // Obtener posts con múltiples imágenes
-        const posts = await Post.find({ images: { $exists: true, $ne: [] } })
-            .populate({
-                path: 'user',
-                select: 'username profile city country'
-            })
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit * 2); // Obtenemos más posts para tener suficientes imágenes
+        // Obtener posts aleatorios que tengan imágenes y no hayan sido vistos
+        let posts = await Post.aggregate([
+            {
+                $match: {
+                    images: { 
+                        $exists: true, 
+                        $ne: [] 
+                    },
+                    ...(viewedPostIds.length > 0 && { _id: { $nin: viewedPostIds } })
+                }
+            },
+            { $sample: { size: limit } }
+        ]);
 
-        // Generar un array de objetos imagen con información del post asociado
+        // Poblar la información del usuario
+        posts = await Post.populate(posts, {
+            path: 'user',
+            select: 'username profile city country'
+        });
+
+        // Generar array de imágenes con la información del post
         let postImages = [];
-
         posts.forEach(post => {
-            // Para cada imagen en el post, crear un objeto con la imagen y los datos del post
             post.images.forEach(imageUrl => {
                 postImages.push({
                     imageUrl,
@@ -271,99 +285,20 @@ exports.getRandomPostImages = async (req, res) => {
             });
         });
 
-        // Aleatorizar el orden de las imágenes
-        postImages = postImages.sort(() => Math.random() - 0.5);
-
-        // Limitar al número solicitado
-        postImages = postImages.slice(0, limit);
-
-        // Determinar si hay más páginas
-        const totalImages = await Post.aggregate([
-            { $match: { images: { $exists: true, $ne: [] } } },
-            { $project: { imageCount: { $size: "$images" } } },
-            { $group: { _id: null, total: { $sum: "$imageCount" } } }
-        ]);
-
-        const totalCount = totalImages.length > 0 ? totalImages[0].total : 0;
-        const hasMore = totalCount > skip + postImages.length;
-
-        res.status(200).json({
-            images: postImages,
-            page,
-            hasMore,
-            totalCount
-        });
-    } catch (error) {
-        console.error("Error al obtener imágenes aleatorias:", error);
-        res.status(500).json({ error: error.message });
-    }
-};
-
-exports.getExplorerPosts = async (req, res) => {
-    try {
-        const limit = parseInt(req.query.limit) || 20;
-        // Convertir el parámetro 'exclude' en un arreglo de ObjectId (si existe)
-        const excludeIds = req.query.exclude
-            ? req.query.exclude.split(',').map(id => new mongoose.Types.ObjectId(id.trim()))
-            : [];
-
-        // Solicitar una muestra mayor para compensar posibles duplicados
-        const sampleSize = limit * 2;
-
-        // Obtener posts aleatorios que tengan imágenes y que no estén en excludeIds
-        let posts = await Post.aggregate([
-            {
-                $match: {
-                    images: { $exists: true, $ne: [] },
-                    _id: { $nin: excludeIds }
-                }
-            },
-            { $sample: { size: sampleSize } }
-        ]);
-
-        // Tomar solo los primeros "limit" posts de la muestra obtenida
-        posts = posts.slice(0, limit);
-
-        // Poblar la información del usuario asociado
-        posts = await Post.populate(posts, {
-            path: 'user',
-            select: 'username profile city country'
-        });
-
-        // Construir el arreglo de objetos imagen a partir de cada post
-        let postImages = [];
-        posts.forEach(post => {
-            post.images.forEach(imageUrl => {
-                postImages.push({
-                    imageUrl,
-                    postId: post._id,
-                    postTitle: post.title,
-                    user: {
-                        username: post.user.username,
-                        profilePicture: (post.user.profile && post.user.profile.profilePicture) || null,
-                        city: post.user.city || null,
-                        country: post.user.country || null
-                    },
-                    peopleTags: post.peopleTags || []
-                });
-            });
-        });
-
-        // Contar los posts restantes que no estén en excludeIds para saber si hay más
+        // Contar los posts restantes que no han sido vistos
         const totalPosts = await Post.countDocuments({
             images: { $exists: true, $ne: [] },
-            _id: { $nin: excludeIds }
+            ...(viewedPostIds.length > 0 && { _id: { $nin: viewedPostIds } })
         });
         const hasMore = totalPosts > posts.length;
 
         res.status(200).json({
             images: postImages,
-            page: 1, // Al usar $sample la paginación tradicional no se aplica
             hasMore,
-            totalCount: totalPosts
+            totalPosts
         });
     } catch (error) {
-        console.error("Error al obtener imágenes para el explorador:", error);
+        console.error("Error al obtener posts para explorer:", error);
         res.status(500).json({ error: error.message });
     }
 };
