@@ -5,14 +5,14 @@ const streamifier = require('streamifier');
 
 /**
  * Crear una nueva oferta.
- * Solo los usuarios con professionalType 1, 2 o 4 pueden crear ofertas de trabajo.
+ * Solo los usuarios con professionalType 1, 2 o 3 pueden crear ofertas de trabajo.
  */
 exports.createOffer = async (req, res) => {
     try {
-        const allowedTypes = [1, 2, 4];
+        const allowedTypes = [1, 2, 3, 5];
         if (!allowedTypes.includes(req.user.professionalType)) {
             return res.status(403).json({ 
-                message: "No tienes permiso para crear ofertas de trabajo. Solo los profesionales de tipo 1, 2 o 4 pueden crear ofertas.",
+                message: "No tienes permiso para crear ofertas de trabajo. Solo los profesionales de tipo 1, 2 o 3 pueden crear ofertas.",
                 professionalType: req.user.professionalType 
             });
         }
@@ -65,11 +65,11 @@ exports.createOffer = async (req, res) => {
 
 /**
  * Crear una nueva oferta educativa.
- * Solo los usuarios con professionalType 3 pueden crear ofertas educativas.
+ * Solo los usuarios con professionalType 4 pueden crear ofertas educativas.
  */
 exports.createEducationalOffer = async (req, res) => {
     try {
-        if (req.user.professionalType !== 3) {
+        if (req.user.professionalType !== 4) {
             return res.status(403).json({ 
                 message: "No tienes permiso para crear ofertas educativas. Solo los profesionales de tipo 3 pueden crear ofertas educativas.",
                 professionalType: req.user.professionalType 

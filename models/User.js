@@ -24,7 +24,7 @@ const UserSchema = new mongoose.Schema({
     brandName: { type: String },           // Para “Diseñador de marca propia”
 
     // Campos específicos para Profesionales
-    // professionalType: 1 (Pequeña marca), 2 (Empresa mediana-grande), 3 (Instituciones), 4 (Agencia), 5 (Otra)
+    // professionalType: 1 (Pequeña marca), 2 (Empresa mediana-grande), 3 (Agencia), 4 (Instituciones), 5 (Otra)
     professionalType: { type: Number },
     companyName: { type: String },
     foundingYear: { type: Number },          // Año de fundación (marca, empresa, agencia)
