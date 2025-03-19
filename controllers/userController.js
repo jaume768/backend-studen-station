@@ -143,13 +143,27 @@ exports.deleteProfile = async (req, res) => {
 
 exports.addFavorite = async (req, res) => {
     const postId = req.params.postId;
+    const { imageUrl } = req.body;
+    
+    if (!imageUrl) {
+        return res.status(400).json({ error: 'Se requiere la URL de la imagen' });
+    }
+    
     try {
         const user = await User.findById(req.user.id);
-        if (!user.favorites.includes(postId)) {
-            user.favorites.push(postId);
-            await user.save();
-        }
-        res.status(200).json({ message: 'Post agregado a favoritos', favorites: user.favorites });
+        
+        // Crear un nuevo favorito con la imagen específica
+        const newFavorite = {
+            postId,
+            savedImage: imageUrl,
+            savedAt: new Date()
+        };
+        
+        // Añadir a favoritos (siempre como un nuevo elemento)
+        user.favorites.push(newFavorite);
+        await user.save();
+        
+        res.status(200).json({ message: 'Imagen guardada en favoritos', favorites: user.favorites });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -157,11 +171,32 @@ exports.addFavorite = async (req, res) => {
 
 exports.removeFavorite = async (req, res) => {
     const postId = req.params.postId;
+    const { imageUrl } = req.body || {}; // Obtener la URL de la imagen si se proporciona
+    
     try {
         const user = await User.findById(req.user.id);
-        user.favorites = user.favorites.filter(fav => fav.toString() !== postId);
+        
+        // Si se proporciona una URL de imagen específica, eliminar solo ese favorito
+        if (imageUrl) {
+            user.favorites = user.favorites.filter(fav => {
+                if (typeof fav === 'object' && fav.postId && fav.savedImage) {
+                    // Eliminar solo si coincide tanto el postId como la imagen
+                    return !(fav.postId.toString() === postId && fav.savedImage === imageUrl);
+                }
+                return true; // Mantener otros tipos de favoritos
+            });
+        } else {
+            // Si no se proporciona una imagen específica, eliminar todos los favoritos de ese post
+            user.favorites = user.favorites.filter(fav => {
+                if (typeof fav === 'object' && fav.postId) {
+                    return fav.postId.toString() !== postId;
+                }
+                return fav.toString() !== postId;
+            });
+        }
+        
         await user.save();
-        res.status(200).json({ message: 'Post removido de favoritos', favorites: user.favorites });
+        res.status(200).json({ message: 'Imagen removida de favoritos', favorites: user.favorites });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -169,8 +204,56 @@ exports.removeFavorite = async (req, res) => {
 
 exports.getFavorites = async (req, res) => {
     try {
-        const user = await User.findById(req.user.id).populate('favorites');
-        res.status(200).json({ favorites: user.favorites });
+        const user = await User.findById(req.user.id);
+        
+        // Procesar favoritos para incluir información completa del post
+        const favorites = await Promise.all(user.favorites.map(async (fav) => {
+            // Si es un objeto con savedImage
+            if (typeof fav === 'object' && fav.savedImage) {
+                const post = await Post.findById(fav.postId);
+                if (!post) return null;
+                
+                return {
+                    _id: fav._id || fav.postId, // Usar _id del favorito si existe, o postId como fallback
+                    postId: fav.postId,
+                    mainImage: fav.savedImage, // Usar la imagen guardada
+                    savedImage: fav.savedImage, // Añadir explícitamente la imagen guardada
+                    user: post.user,
+                    title: post.title,
+                    description: post.description,
+                    createdAt: post.createdAt,
+                    savedAt: fav.savedAt || new Date()
+                };
+            } 
+            // Si es solo un ID (caso antiguo)
+            else {
+                const postId = typeof fav === 'object' ? fav.postId : fav;
+                const post = await Post.findById(postId);
+                if (!post) return null;
+                
+                const mainImage = post.images && post.images.length > 0 ? post.images[0] : null;
+                
+                return {
+                    _id: fav._id || postId,
+                    postId: postId,
+                    mainImage: mainImage,
+                    savedImage: mainImage, // Para mantener consistencia con el nuevo formato
+                    user: post.user,
+                    title: post.title,
+                    description: post.description,
+                    createdAt: post.createdAt,
+                    savedAt: new Date()
+                };
+            }
+        }));
+        
+        // Filtrar valores nulos (posts que podrían haber sido eliminados)
+        const validFavorites = favorites.filter(fav => fav !== null);
+        
+        // Ordenar por fecha de guardado (más reciente primero)
+        validFavorites.sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+        
+        res.status(200).json({ favorites: validFavorites });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

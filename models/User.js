@@ -95,9 +95,14 @@ const UserSchema = new mongoose.Schema({
     ],
 
 
-    // Indica si el usuario completó su perfil en el dashboard (lo que se "publica" en el buscador)
     profileCompleted: { type: Boolean, default: false },
-    favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
+    favorites: [
+        {
+            postId: { type: mongoose.Schema.Types.ObjectId, ref: 'Post', required: true },
+            savedImage: { type: String, required: true },
+            savedAt: { type: Date, default: Date.now }
+        }
+    ],
     createdAt: { type: Date, default: Date.now },
     isVerified: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },

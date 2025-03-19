@@ -23,8 +23,8 @@ router.put('/profile-picture', ensureAuthenticated, upload.single('file'), userC
 router.post('/upload-pdf', ensureAuthenticated, upload.single('file'), userController.uploadPdf);
 
 router.delete('/profile', ensureAuthenticated, userController.deleteProfile);
-router.get('/favorites', ensureAuthenticated, userController.getFavorites);
 
+router.get('/favorites', ensureAuthenticated, userController.getFavorites);
 router.post('/favorites/:postId', ensureAuthenticated, userController.addFavorite);
 router.delete('/favorites/:postId', ensureAuthenticated, userController.removeFavorite);
 
