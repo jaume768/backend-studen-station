@@ -9,6 +9,7 @@ const upload = multer({ storage });
 // Los endpoints que no usan parámetros en la URL deben definirse primero
 router.get('/unreviewed', ensureAuthenticated, offerController.getUnreviewedOffers);
 router.get('/search', offerController.searchOffers);
+router.get('/user', ensureAuthenticated, offerController.getUserOffers);
 router.get('/', offerController.getAllOffers);
 
 // Endpoints para ofertas de trabajo

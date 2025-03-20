@@ -84,6 +84,22 @@ const UserSchema = new mongoose.Schema({
         pinterest: { type: String, default: "" }
     },
 
+    // Hitos profesionales para perfiles de empresa
+    professionalMilestones: [
+        {
+            date: { type: String },
+            name: { type: String },
+            entity: { type: String },
+            description: { type: String }
+        }
+    ],
+    
+    // Etiquetas para empresas
+    companyTags: [{ type: String }],
+    
+    // Empresa ofrece prácticas
+    offersPractices: { type: Boolean, default: false },
+    
     professionalFormation: [
         {
             trainingName: { type: String },
@@ -107,7 +123,6 @@ const UserSchema = new mongoose.Schema({
     isVerified: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
     savedOffers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Offer' }],
-    // Seguidos y seguidores
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 });

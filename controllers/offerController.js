@@ -336,3 +336,40 @@ exports.cancelOffer = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+/**
+ * Obtener ofertas publicadas por el usuario autenticado
+ */
+exports.getUserOffers = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        console.log('Buscando ofertas para el usuario:', userId);
+        
+        // Buscar ofertas de trabajo donde el usuario es el publicador
+        const offers = await Offer.find({ publisher: userId })
+            .sort({ publicationDate: -1 })
+            .lean();
+
+        // Buscar ofertas educativas donde el usuario es el publicador
+        const educationalOffers = await EducationalOffer.find({ publisher: userId })
+            .sort({ publicationDate: -1 })
+            .lean();
+        
+        // Combinar los dos tipos de ofertas y ordenar por fecha de publicación
+        const allOffers = [...offers, ...educationalOffers].sort((a, b) => 
+            new Date(b.publicationDate) - new Date(a.publicationDate)
+        );
+        
+        return res.status(200).json({ 
+            success: true, 
+            offers: allOffers 
+        });
+    } catch (error) {
+        console.error('Error al obtener ofertas del usuario:', error);
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Error al obtener las ofertas del usuario', 
+            error: error.message 
+        });
+    }
+};

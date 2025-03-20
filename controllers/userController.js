@@ -84,6 +84,25 @@ exports.changePassword = async (req, res) => {
 exports.updateProfile = async (req, res) => {
     try {
         const updates = req.body;
+        
+        // Asegurarse de que los arrays estén definidos correctamente
+        if (updates.professionalMilestones && !Array.isArray(updates.professionalMilestones)) {
+            updates.professionalMilestones = [];
+        }
+        
+        if (updates.companyTags && !Array.isArray(updates.companyTags)) {
+            updates.companyTags = [];
+        }
+        
+        // Limitar etiquetas a un máximo de 3
+        if (Array.isArray(updates.companyTags) && updates.companyTags.length > 3) {
+            updates.companyTags = updates.companyTags.slice(0, 3);
+        }
+        
+        // Asegurarse de que offersPractices sea booleano
+        if (updates.offersPractices !== undefined) {
+            updates.offersPractices = Boolean(updates.offersPractices);
+        }
 
         const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true });
         res.status(200).json({ message: 'Perfil actualizado', user });
