@@ -41,4 +41,8 @@ router.get('/check-follow/:userId', ensureAuthenticated, userController.checkFol
 router.get('/searchUsers', ensureAuthenticated, userController.searchUsers);
 router.get('/creatives', userController.getCreatives);
 
+// Rutas para obtener ofertas de un usuario específico
+router.get('/:userId/offers', userController.getUserOffers);
+router.get('/:userId/educational-offers', userController.getUserEducationalOffers);
+
 module.exports = router;

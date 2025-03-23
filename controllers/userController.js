@@ -541,7 +541,7 @@ exports.getCreatives = async (req, res) => {
         // Construir el filtro base
         let filter = { 
             isActive: true,
-            professionalType: { $nin: [1, 2, 4] }
+            professionalType: { $nin: [1, 2, 3, 4] }
         };
         
         // Aplicar filtros adicionales si se proporcionan
@@ -654,5 +654,103 @@ exports.uploadPdf = async (req, res) => {
     } catch (error) {
         console.error('Error al subir el archivo PDF:', error);
         res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+// Obtener ofertas de trabajo de un usuario específico
+exports.getUserOffers = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        if (!userId) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Se requiere el ID del usuario' 
+            });
+        }
+
+        // Verificar si el usuario existe
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Usuario no encontrado' 
+            });
+        }
+
+        // Evitar mostrar ofertas de usuarios de tipo 4 (instituciones educativas)
+        if (user.professionalType === 4) {
+            return res.status(200).json({ 
+                success: true, 
+                offers: [] 
+            });
+        }
+
+        // Buscar ofertas de trabajo del usuario
+        const Offer = require('../models/Offer');
+        const offers = await Offer.find({ publisher: userId })
+            .sort({ publicationDate: -1 })
+            .lean();
+        
+        return res.status(200).json({ 
+            success: true, 
+            offers 
+        });
+    } catch (error) {
+        console.error('Error al obtener ofertas del usuario:', error);
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Error al obtener las ofertas del usuario', 
+            error: error.message 
+        });
+    }
+};
+
+// Obtener ofertas educativas de un usuario específico
+exports.getUserEducationalOffers = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        if (!userId) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Se requiere el ID del usuario' 
+            });
+        }
+
+        // Verificar si el usuario existe
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Usuario no encontrado' 
+            });
+        }
+
+        // Solo mostrar ofertas educativas para usuarios de tipo 4 (instituciones educativas)
+        if (user.professionalType !== 4) {
+            return res.status(200).json({ 
+                success: true, 
+                offers: [] 
+            });
+        }
+
+        // Buscar ofertas educativas del usuario
+        const EducationalOffer = require('../models/EducationalOffer');
+        const offers = await EducationalOffer.find({ publisher: userId })
+            .sort({ publicationDate: -1 })
+            .lean();
+        
+        return res.status(200).json({ 
+            success: true, 
+            offers 
+        });
+    } catch (error) {
+        console.error('Error al obtener ofertas educativas del usuario:', error);
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Error al obtener las ofertas educativas del usuario', 
+            error: error.message 
+        });
     }
 };

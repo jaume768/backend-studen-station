@@ -10,6 +10,7 @@ const upload = multer({ storage });
 router.get('/unreviewed', ensureAuthenticated, offerController.getUnreviewedOffers);
 router.get('/search', offerController.searchOffers);
 router.get('/user', ensureAuthenticated, offerController.getUserOffers);
+router.get('/educational-offers/user', ensureAuthenticated, offerController.getUserEducationalOffers);
 router.get('/', offerController.getAllOffers);
 
 // Endpoints para ofertas de trabajo
@@ -21,6 +22,8 @@ router.post('/educational', ensureAuthenticated, upload.fields([
     { name: 'gallery', maxCount: 5 },
     { name: 'brochure', maxCount: 1 }
 ]), offerController.createEducationalOffer);
+router.get('/educational/:id', offerController.getEducationalOffer);
+router.get('/educational', offerController.getAllEducationalOffers);
 
 // Obtener oferta por ID
 router.get('/:id', offerController.getOffer);

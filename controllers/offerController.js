@@ -179,12 +179,29 @@ exports.createEducationalOffer = async (req, res) => {
  */
 exports.getOffer = async (req, res) => {
     try {
-        const offer = await Offer.findById(req.params.id)
-            .populate('publisher', 'fullName companyName');
-        if (!offer) return res.status(404).json({ message: "Oferta no encontrada." });
+        const offer = await Offer.findById(req.params.id).populate('publisher', 'fullName companyName username');
+        if (!offer) {
+            return res.status(404).json({ message: "Oferta no encontrada." });
+        }
         res.status(200).json({ offer });
     } catch (error) {
         console.error('Error en getOffer:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * Obtener los detalles de una oferta educativa por su ID.
+ */
+exports.getEducationalOffer = async (req, res) => {
+    try {
+        const offer = await EducationalOffer.findById(req.params.id).populate('publisher', 'fullName companyName username');
+        if (!offer) {
+            return res.status(404).json({ message: "Oferta educativa no encontrada." });
+        }
+        res.status(200).json({ offer });
+    } catch (error) {
+        console.error('Error en getEducationalOffer:', error);
         res.status(500).json({ error: error.message });
     }
 };
@@ -370,6 +387,66 @@ exports.getUserOffers = async (req, res) => {
             success: false, 
             message: 'Error al obtener las ofertas del usuario', 
             error: error.message 
+        });
+    }
+};
+
+/**
+ * Obtener ofertas educativas publicadas por el usuario autenticado
+ */
+exports.getUserEducationalOffers = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        console.log('Buscando ofertas educativas para el usuario:', userId);
+        
+        // Buscar ofertas educativas donde el usuario es el publicador
+        const educationalOffers = await EducationalOffer.find({ publisher: userId })
+            .sort({ publicationDate: -1 })
+            .lean();
+        
+        return res.status(200).json({ 
+            success: true, 
+            offers: educationalOffers 
+        });
+    } catch (error) {
+        console.error('Error al obtener ofertas educativas del usuario:', error);
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Error al obtener las ofertas educativas del usuario', 
+            error: error.message 
+        });
+    }
+};
+
+/**
+ * Obtener todas las ofertas educativas.
+ */
+exports.getAllEducationalOffers = async (req, res) => {
+    try {
+        const { status = 'all' } = req.query;
+        
+        // Construir la consulta según el estado solicitado
+        let query = {};
+        if (status !== 'all') {
+            query.status = status;
+        }
+        
+        // Buscar todas las ofertas educativas que coincidan con la consulta
+        const offers = await EducationalOffer.find(query)
+            .sort({ publicationDate: -1 })
+            .populate('publisher', 'username fullName companyName profilePicture')
+            .lean();
+
+        res.status(200).json({
+            success: true,
+            offers
+        });
+    } catch (error) {
+        console.error('Error al obtener las ofertas educativas:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al obtener las ofertas educativas',
+            error: error.message
         });
     }
 };
