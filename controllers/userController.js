@@ -539,7 +539,10 @@ exports.getCreatives = async (req, res) => {
         const skip = (pageNumber - 1) * limitNumber;
 
         // Construir el filtro base
-        let filter = { isActive: true };
+        let filter = { 
+            isActive: true,
+            professionalType: { $nin: [1, 2, 4] }
+        };
         
         // Aplicar filtros adicionales si se proporcionan
         if (country) {
@@ -548,7 +551,7 @@ exports.getCreatives = async (req, res) => {
         
         // Buscar usuarios
         const users = await User.find(filter)
-            .select('username fullName country professionalTitle profile.profilePicture')
+            .select('username fullName country professionalTitle profile.profilePicture skills')
             .skip(skip)
             .limit(limitNumber)
             .lean();
@@ -575,17 +578,18 @@ exports.getCreatives = async (req, res) => {
             };
         }));
         
-        // Filtrar usuarios que no tienen posts si se especificó una categoría
-        const filteredUsers = category 
-            ? usersWithLastPost.filter(user => user.lastPost) 
-            : usersWithLastPost;
+        // Filtrar usuarios que no tienen posts (siempre, no solo cuando hay categoría)
+        const filteredUsers = usersWithLastPost.filter(user => user.lastPost);
         
         // Obtener países únicos para el filtro
         const countries = await User.distinct('country', { isActive: true });
         
+        // Actualizar el contador total para reflejar solo usuarios con posts
+        const filteredTotal = filteredUsers.length;
+        
         res.status(200).json({
             creatives: filteredUsers,
-            totalPages: Math.ceil(total / limitNumber),
+            totalPages: Math.ceil(filteredTotal / limitNumber),
             currentPage: pageNumber,
             countries: countries.filter(c => c) // Filtrar valores nulos o vacíos
         });
