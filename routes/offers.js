@@ -20,8 +20,17 @@ router.post('/create', ensureAuthenticated, upload.single('logo'), offerControll
 router.post('/educational', ensureAuthenticated, upload.fields([
     { name: 'headerImage', maxCount: 1 }
 ]), offerController.createEducationalOffer);
+
+router.get('/educational/institutions', offerController.getEducationalOffersByInstitution);
+router.get('/educational/user/:username', offerController.getEducationalOffersByUser);
 router.get('/educational/:id', offerController.getEducationalOffer);
 router.get('/educational', offerController.getAllEducationalOffers);
+// TODO: Implementar la función updateEducationalOffer en el controlador
+// router.put('/educational/:id', ensureAuthenticated, upload.fields([
+//     { name: 'banner', maxCount: 1 },
+//     { name: 'gallery', maxCount: 5 },
+//     { name: 'brochure', maxCount: 1 }
+// ]), offerController.updateEducationalOffer);
 
 // Obtener oferta por ID
 router.get('/:id', offerController.getOffer);

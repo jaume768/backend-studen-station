@@ -103,7 +103,7 @@ exports.createEducationalOffer = async (req, res) => {
         }
 
         // Validación de URL
-        if (req.body.websiteUrl && !/^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/.test(req.body.websiteUrl)) {
+        if (req.body.websiteUrl && !/^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([\w .-]*)*\/?$/.test(req.body.websiteUrl)) {
             return res.status(400).json({
                 message: "La URL del sitio web no es válida"
             });
@@ -477,7 +477,6 @@ exports.cancelOffer = async (req, res) => {
 exports.getUserOffers = async (req, res) => {
     try {
         const userId = req.user.id;
-        console.log('Buscando ofertas para el usuario:', userId);
         
         // Buscar ofertas de trabajo donde el usuario es el publicador
         const offers = await Offer.find({ publisher: userId })
@@ -514,7 +513,6 @@ exports.getUserOffers = async (req, res) => {
 exports.getUserEducationalOffers = async (req, res) => {
     try {
         const userId = req.user.id;
-        console.log('Buscando ofertas educativas para el usuario:', userId);
         
         // Buscar ofertas educativas donde el usuario es el publicador
         const educationalOffers = await EducationalOffer.find({ publisher: userId })
@@ -563,6 +561,121 @@ exports.getAllEducationalOffers = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error al obtener las ofertas educativas',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Obtener todas las ofertas educativas agrupadas por institución
+ */
+exports.getEducationalOffersByInstitution = async (req, res) => {
+    try {
+        // Obtener todas las ofertas educativas (incluyendo pending)
+        const offers = await EducationalOffer.find()
+            .populate({
+                path: 'publisher',
+                select: 'username companyName profile professionalType city country'
+            })
+            .sort({ publicationDate: -1 });
+        
+        // Agrupar por institución
+        const institutionsMap = new Map();
+        
+        offers.forEach(offer => {
+            if (!offer.publisher) return; // Ignorar ofertas sin publisher
+            
+            const institutionId = offer.publisher._id.toString();
+            
+            if (!institutionsMap.has(institutionId)) {
+                institutionsMap.set(institutionId, {
+                    _id: institutionId,
+                    name: offer.publisher.companyName || offer.institutionName,
+                    username: offer.publisher.username,
+                    logo: offer.publisher.profile?.profilePicture || null,
+                    location: {
+                        city: offer.publisher.city || offer.location?.city || 'No especificada',
+                        country: offer.publisher.country || offer.location?.country || 'No especificado'
+                    },
+                    type: offer.publisher.professionalType === 4 ? 'public' : 'private',
+                    programs: []
+                });
+            }
+            
+            // Agregar programa a la institución
+            institutionsMap.get(institutionId).programs.push({
+                _id: offer._id,
+                programName: offer.programName,
+                educationType: offer.educationType,
+                modality: offer.modality,
+                duration: offer.duration,
+                description: offer.description,
+                internships: offer.internships,
+                erasmus: offer.erasmus,
+                bilingualEducation: offer.bilingualEducation,
+                headerImage: offer.headerImage,
+                status: offer.status
+            });
+        });
+        
+        // Convertir el Map a un array
+        const institutions = Array.from(institutionsMap.values());
+        
+        return res.status(200).json({
+            success: true,
+            institutions: institutions
+        });
+    } catch (error) {
+        console.error('Error al obtener ofertas educativas por institución:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error al obtener las ofertas educativas por institución',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Obtener ofertas educativas publicadas por un usuario específico
+ */
+exports.getEducationalOffersByUser = async (req, res) => {
+    try {
+        const { username } = req.params;
+        
+        // Buscar el usuario por su nombre de usuario
+        const User = require('../models/User');
+        const user = await User.findOne({ username });
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "Usuario no encontrado"
+            });
+        }
+
+        // Verificar si el usuario es una institución educativa (tipo 4)
+        if (user.professionalType !== 4) {
+            return res.status(200).json({
+                success: true,
+                offers: [] // Devolver array vacío si no es una institución educativa
+            });
+        }
+
+        const prova = await EducationalOffer.find({ publisher: user._id })
+        
+        // Buscar todas las ofertas educativas publicadas por este usuario
+        const offers = await EducationalOffer.find({ publisher: user._id })
+            .sort({ publicationDate: -1 });
+        
+        return res.status(200).json({
+            success: true,
+            offers: offers
+        });
+    } catch (error) {
+        console.error('Error al obtener ofertas educativas por usuario:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error al obtener las ofertas educativas del usuario',
             error: error.message
         });
     }
