@@ -1,5 +1,7 @@
 const User = require('../models/User');
 const Post = require('../models/Post');
+const Offer = require('../models/Offer');
+const EducationalOffer = require('../models/EducationalOffer');
 const cloudinary = require('../config/cloudinary');
 const streamifier = require('streamifier');
 const bcrypt = require('bcryptjs');
@@ -752,5 +754,86 @@ exports.getUserEducationalOffers = async (req, res) => {
             message: 'Error al obtener las ofertas educativas del usuario', 
             error: error.message 
         });
+    }
+};
+
+exports.searchAll = async (req, res) => {
+    try {
+        const { query } = req.query;
+        if (!query || query.length < 2) {
+            return res.status(400).json({ message: 'La búsqueda debe tener al menos 2 caracteres' });
+        }
+
+        const regex = new RegExp(query, 'i');
+
+        // Búsqueda de usuarios
+        const users = await User.find({
+            $or: [
+                { username: regex },
+                { fullName: regex },
+                { companyName: regex },
+                { professionalTitle: regex },
+                { biography: regex }
+            ],
+            isActive: true
+        })
+        .select('username fullName professionalTitle companyName role profile.profilePicture')
+        .limit(10);
+
+        // Búsqueda de posts
+        const posts = await Post.find({
+            $or: [
+                { title: regex },
+                { description: regex },
+                { tags: regex }
+            ]
+        })
+        .populate('user', 'username profile.profilePicture')
+        .select('title description mainImage createdAt')
+        .sort({ createdAt: -1 })
+        .limit(10);
+
+        // Búsqueda de ofertas de trabajo
+        const offers = await Offer.find({
+            $or: [
+                { position: regex },
+                { companyName: regex },
+                { description: regex },
+                { city: regex },
+                { tags: regex }
+            ],
+            status: 'accepted'
+        })
+        .select('companyName position city publicationDate companyLogo')
+        .sort({ publicationDate: -1 })
+        .limit(10);
+
+        // Búsqueda de ofertas educativas
+        const educationalOffers = await EducationalOffer.find({
+            $or: [
+                { programName: regex },
+                { description: regex },
+                { knowledgeArea: regex },
+                { 'location.city': regex },
+                { 'location.country': regex }
+            ],
+            status: 'accepted'
+        })
+        .select('programName studyType knowledgeArea modality startDate images')
+        .sort({ publicationDate: -1 })
+        .limit(10);
+
+        return res.status(200).json({
+            results: {
+                users,
+                posts,
+                offers,
+                educationalOffers
+            },
+            message: 'Búsqueda completada con éxito'
+        });
+    } catch (error) {
+        console.error('Error en la búsqueda global:', error);
+        return res.status(500).json({ message: 'Error interno del servidor' });
     }
 };

@@ -41,6 +41,9 @@ router.get('/check-follow/:userId', ensureAuthenticated, userController.checkFol
 router.get('/searchUsers', ensureAuthenticated, userController.searchUsers);
 router.get('/creatives', userController.getCreatives);
 
+// Ruta para búsqueda global
+router.get('/search', userController.searchAll);
+
 // Rutas para obtener ofertas de un usuario específico
 router.get('/:userId/offers', userController.getUserOffers);
 router.get('/:userId/educational-offers', userController.getUserEducationalOffers);
