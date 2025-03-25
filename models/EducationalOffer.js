@@ -1,92 +1,122 @@
 const mongoose = require('mongoose');
 
 const educationalOfferSchema = new mongoose.Schema({
+    institutionName: {
+        type: String,
+        required: true,
+        trim: true
+    },
     programName: {
         type: String,
         required: true,
         trim: true
     },
-    studyType: {
+    educationType: {
         type: String,
         required: true,
-        enum: ['Grado', 'Máster', 'Curso', 'Certificación', 'Taller', 'Diplomado']
-    },
-    knowledgeArea: {
-        type: String,
-        required: true,
+        enum: ['Grado', 'Máster', 'FP', 'Curso', 'Taller', 'Certificación', 'Otro'],
         trim: true
     },
     modality: {
         type: String,
         required: true,
-        enum: ['Presencial', 'Online', 'Híbrida']
+        enum: ['Presencial', 'Online', 'Híbrido'],
+        trim: true
+    },
+    morningSchedule: {
+        type: Boolean,
+        default: false
     },
     duration: {
-        value: {
-            type: Number,
-            required: true
-        },
-        unit: {
-            type: String,
-            required: true,
-            enum: ['horas', 'meses', 'años']
-        }
+        type: Number,
+        required: true,
+        min: 1
     },
-    startDate: {
-        type: Date,
-        required: true
+    credits: {
+        type: Number,
+        min: 1
     },
-    endDate: {
-        type: Date
+    internships: {
+        type: Boolean,
+        default: false
+    },
+    erasmus: {
+        type: Boolean,
+        default: false
+    },
+    bilingualEducation: {
+        type: Boolean,
+        default: false
     },
     location: {
-        city: String,
-        country: String,
-        address: String
-    },
-    price: {
-        amount: Number,
-        currency: {
+        city: {
             type: String,
-            default: 'EUR'
+            required: true,
+            trim: true
+        },
+        country: {
+            type: String,
+            required: true,
+            trim: true
         }
+    },
+    enrollmentPeriod: {
+        startDate: {
+            day: {
+                type: Number,
+                min: 1,
+                max: 31
+            },
+            month: {
+                type: Number,
+                min: 1,
+                max: 12
+            }
+        },
+        endDate: {
+            day: {
+                type: Number,
+                min: 1,
+                max: 31
+            },
+            month: {
+                type: Number,
+                min: 1,
+                max: 12
+            }
+        }
+    },
+    schoolYear: {
+        startMonth: {
+            type: Number,
+            min: 1,
+            max: 12
+        },
+        endMonth: {
+            type: Number,
+            min: 1,
+            max: 12
+        }
+    },
+    websiteUrl: {
+        type: String,
+        validate: {
+            validator: function(v) {
+                return !v || /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/.test(v);
+            },
+            message: props => `${props.value} no es una URL válida`
+        }
+    },
+    description: {
+        type: String,
+        trim: true
+    },
+    headerImage: {
+        type: String
     },
     requirements: {
         type: [String],
         default: []
-    },
-    description: {
-        type: String,
-        required: true
-    },
-    brochureUrl: String,
-    images: [{
-        url: String,
-        type: {
-            type: String,
-            enum: ['banner', 'gallery'],
-            default: 'gallery'
-        }
-    }],
-    socialLinks: {
-        facebook: String,
-        instagram: String,
-        twitter: String,
-        linkedin: String,
-        website: String
-    },
-    schedule: {
-        type: String,
-        enum: ['mañana', 'tarde', 'noche', 'fin de semana'],
-        required: true
-    },
-    language: {
-        type: String,
-        required: true
-    },
-    availableSeats: {
-        type: Number,
-        min: 0
     },
     publisher: {
         type: mongoose.Schema.Types.ObjectId,
@@ -102,6 +132,18 @@ const educationalOfferSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     }
+}, {
+    timestamps: true
 });
 
-module.exports = mongoose.model('EducationalOffer', educationalOfferSchema);
+// Índices para mejorar el rendimiento de búsqueda
+educationalOfferSchema.index({ programName: 'text', institutionName: 'text', 'location.city': 'text' });
+educationalOfferSchema.index({ 'location.country': 1, 'location.city': 1 });
+educationalOfferSchema.index({ educationType: 1 });
+educationalOfferSchema.index({ modality: 1 });
+educationalOfferSchema.index({ status: 1 });
+educationalOfferSchema.index({ publisher: 1 });
+
+const EducationalOffer = mongoose.model('EducationalOffer', educationalOfferSchema);
+
+module.exports = EducationalOffer;

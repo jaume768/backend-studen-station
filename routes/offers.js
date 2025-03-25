@@ -18,9 +18,7 @@ router.post('/create', ensureAuthenticated, upload.single('logo'), offerControll
 
 // Endpoints para ofertas educativas
 router.post('/educational', ensureAuthenticated, upload.fields([
-    { name: 'banner', maxCount: 1 },
-    { name: 'gallery', maxCount: 5 },
-    { name: 'brochure', maxCount: 1 }
+    { name: 'headerImage', maxCount: 1 }
 ]), offerController.createEducationalOffer);
 router.get('/educational/:id', offerController.getEducationalOffer);
 router.get('/educational', offerController.getAllEducationalOffers);

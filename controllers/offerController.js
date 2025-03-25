@@ -69,108 +69,225 @@ exports.createOffer = async (req, res) => {
  */
 exports.createEducationalOffer = async (req, res) => {
     try {
-        if (req.user.professionalType !== 4) {
+        // Verificación de permisos basada en el professionalType
+        const allowedTypes = [4]; // Solo centros educativos (tipo 4) pueden crear ofertas educativas
+        if (!allowedTypes.includes(req.user.professionalType)) {
             return res.status(403).json({ 
-                message: "No tienes permiso para crear ofertas educativas. Solo los profesionales de tipo 3 pueden crear ofertas educativas.",
+                message: "No tienes permiso para crear ofertas educativas. Solo los centros educativos pueden crear ofertas educativas.",
                 professionalType: req.user.professionalType 
             });
         }
 
-        let images = [];
-        if (req.files && req.files.length > 0) {
-            try {
-                for (const file of req.files) {
-                    const result = await new Promise((resolve, reject) => {
-                        const stream = cloudinary.uploader.upload_stream(
-                            { folder: 'educational_offers' },
-                            (error, result) => {
-                                if (result) resolve(result);
-                                else reject(error);
-                            }
-                        );
-                        streamifier.createReadStream(file.buffer).pipe(stream);
-                    });
-                    images.push({
-                        url: result.secure_url,
-                        type: file.fieldname === 'banner' ? 'banner' : 'gallery'
-                    });
-                }
-            } catch (uploadError) {
-                console.error('Error al subir imágenes:', uploadError);
-            }
+        // Validación de datos entrantes
+        const requiredFields = ['institutionName', 'programName', 'educationType', 'city', 'country', 'modality', 'duration'];
+        const missingFields = requiredFields.filter(field => !req.body[field]);
+        
+        if (missingFields.length > 0) {
+            return res.status(400).json({
+                message: "Faltan campos obligatorios",
+                missingFields: missingFields
+            });
         }
 
-        let brochureUrl = null;
-        if (req.files && req.files.brochure) {
+        // Validación de tipos de datos
+        if (req.body.duration && (isNaN(req.body.duration) || parseInt(req.body.duration) <= 0)) {
+            return res.status(400).json({
+                message: "La duración debe ser un número positivo"
+            });
+        }
+
+        if (req.body.credits && (isNaN(req.body.credits) || parseInt(req.body.credits) <= 0)) {
+            return res.status(400).json({
+                message: "Los créditos deben ser un número positivo"
+            });
+        }
+
+        // Validación de URL
+        if (req.body.websiteUrl && !/^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/.test(req.body.websiteUrl)) {
+            return res.status(400).json({
+                message: "La URL del sitio web no es válida"
+            });
+        }
+
+        // Función para convertir nombre de mes a número
+        const monthNameToNumber = (monthName) => {
+            const months = {
+                "Enero": 1, "Febrero": 2, "Marzo": 3, "Abril": 4, "Mayo": 5, "Junio": 6,
+                "Julio": 7, "Agosto": 8, "Septiembre": 9, "Octubre": 10, "Noviembre": 11, "Diciembre": 12
+            };
+            return months[monthName] || null;
+        };
+
+        // Procesamiento de imágenes
+        let headerImageUrl = null;
+        if (req.files && req.files.headerImage) {
             try {
+                // Validación del tamaño y tipo de imagen
+                const file = req.files.headerImage[0];
+                const maxSize = 5 * 1024 * 1024; // 5MB
+                const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+                
+                if (file.size > maxSize) {
+                    return res.status(400).json({
+                        message: "La imagen es demasiado grande. Máximo 5MB permitido."
+                    });
+                }
+                
+                if (!allowedTypes.includes(file.mimetype)) {
+                    return res.status(400).json({
+                        message: "Tipo de archivo no permitido. Solo se aceptan JPG, PNG y GIF."
+                    });
+                }
+
+                // Subir imagen a Cloudinary
                 const result = await new Promise((resolve, reject) => {
                     const stream = cloudinary.uploader.upload_stream(
-                        { 
-                            folder: 'educational_offers/brochures',
-                            resource_type: 'raw'
-                        },
+                        { folder: 'educational_offers' },
                         (error, result) => {
                             if (result) resolve(result);
                             else reject(error);
                         }
                     );
-                    streamifier.createReadStream(req.files.brochure[0].buffer).pipe(stream);
+                    streamifier.createReadStream(file.buffer).pipe(stream);
                 });
-                brochureUrl = result.secure_url;
+                
+                headerImageUrl = result.secure_url;
             } catch (uploadError) {
-                console.error('Error al subir el folleto:', uploadError);
+                console.error('Error al subir la imagen:', uploadError);
+                return res.status(500).json({
+                    message: "Error al procesar la imagen. Inténtalo de nuevo más tarde."
+                });
             }
         }
 
+        // Convertir nombres de meses a números
+        let enrollmentStartMonth = null;
+        if (req.body.enrollmentStartMonth) {
+            enrollmentStartMonth = monthNameToNumber(req.body.enrollmentStartMonth);
+            if (!enrollmentStartMonth) {
+                return res.status(400).json({
+                    message: "Mes de inicio de inscripción no válido"
+                });
+            }
+        }
+
+        let enrollmentEndMonth = null;
+        if (req.body.enrollmentEndMonth) {
+            enrollmentEndMonth = monthNameToNumber(req.body.enrollmentEndMonth);
+            if (!enrollmentEndMonth) {
+                return res.status(400).json({
+                    message: "Mes de fin de inscripción no válido"
+                });
+            }
+        }
+
+        let schoolYearStartMonth = null;
+        if (req.body.schoolYearStartMonth) {
+            schoolYearStartMonth = monthNameToNumber(req.body.schoolYearStartMonth);
+            if (!schoolYearStartMonth) {
+                return res.status(400).json({
+                    message: "Mes de inicio del año escolar no válido"
+                });
+            }
+        }
+
+        let schoolYearEndMonth = null;
+        if (req.body.schoolYearEndMonth) {
+            schoolYearEndMonth = monthNameToNumber(req.body.schoolYearEndMonth);
+            if (!schoolYearEndMonth) {
+                return res.status(400).json({
+                    message: "Mes de fin del año escolar no válido"
+                });
+            }
+        }
+
+        // Construcción de los datos para guardar en la base de datos
         const educationalOfferData = {
+            institutionName: req.body.institutionName,
             programName: req.body.programName,
-            studyType: req.body.studyType,
-            knowledgeArea: req.body.knowledgeArea,
+            educationType: req.body.educationType,
             modality: req.body.modality,
-            duration: {
-                value: req.body.durationValue,
-                unit: req.body.durationUnit
-            },
-            startDate: new Date(req.body.startDate),
-            endDate: req.body.endDate ? new Date(req.body.endDate) : undefined,
-            location: req.body.modality !== 'Online' ? {
+            morningSchedule: req.body.morningSchedule === 'true',
+            duration: req.body.duration,
+            credits: req.body.credits || undefined,
+            internships: req.body.internships === 'true',
+            erasmus: req.body.erasmus === 'true',
+            bilingualEducation: req.body.bilingualEducation === 'true',
+            location: {
                 city: req.body.city,
-                country: req.body.country,
-                address: req.body.address
-            } : undefined,
-            price: req.body.price ? {
-                amount: req.body.price,
-                currency: req.body.currency || 'EUR'
-            } : undefined,
-            requirements: req.body.requirements ? JSON.parse(req.body.requirements) : [],
-            description: req.body.description,
-            brochureUrl,
-            images,
-            socialLinks: {
-                facebook: req.body.facebook,
-                instagram: req.body.instagram,
-                twitter: req.body.twitter,
-                linkedin: req.body.linkedin,
-                website: req.body.website
+                country: req.body.country
             },
-            schedule: req.body.schedule,
-            language: req.body.language,
-            availableSeats: req.body.availableSeats,
+            enrollmentPeriod: {
+                startDate: req.body.enrollmentStartDate ? {
+                    day: parseInt(req.body.enrollmentStartDate),
+                    month: enrollmentStartMonth
+                } : undefined,
+                endDate: req.body.enrollmentEndDate ? {
+                    day: parseInt(req.body.enrollmentEndDate),
+                    month: enrollmentEndMonth
+                } : undefined
+            },
+            schoolYear: {
+                startMonth: schoolYearStartMonth,
+                endMonth: schoolYearEndMonth
+            },
+            websiteUrl: req.body.websiteUrl || undefined,
+            description: req.body.description || undefined,
+            headerImage: headerImageUrl,
+            requirements: req.body.requirements ? JSON.parse(req.body.requirements) : [],
             publisher: req.user.id,
             status: 'pending',
             publicationDate: new Date()
         };
 
+        // Limpieza de datos: eliminar campos undefined o null
+        for (const key in educationalOfferData) {
+            if (educationalOfferData[key] === undefined || educationalOfferData[key] === null) {
+                delete educationalOfferData[key];
+            } else if (typeof educationalOfferData[key] === 'object' && !Array.isArray(educationalOfferData[key])) {
+                // Limpiar objetos anidados
+                for (const nestedKey in educationalOfferData[key]) {
+                    if (educationalOfferData[key][nestedKey] === undefined || educationalOfferData[key][nestedKey] === null) {
+                        delete educationalOfferData[key][nestedKey];
+                    }
+                }
+                // Si el objeto queda vacío, eliminarlo
+                if (Object.keys(educationalOfferData[key]).length === 0) {
+                    delete educationalOfferData[key];
+                }
+            }
+        }
+
         const newEducationalOffer = new EducationalOffer(educationalOfferData);
-        await newEducationalOffer.save();
+        
+        try {
+            await newEducationalOffer.save();
+        } catch (validationError) {
+            console.error('Error de validación:', validationError);
+            // Manejar errores de validación específicos de Mongoose
+            if (validationError.name === 'ValidationError') {
+                const errors = {};
+                for (const field in validationError.errors) {
+                    errors[field] = validationError.errors[field].message;
+                }
+                return res.status(400).json({
+                    message: "Error de validación",
+                    errors
+                });
+            }
+            throw validationError;
+        }
         
         res.status(201).json({ 
-            message: "Oferta educativa creada", 
+            message: "Oferta educativa creada con éxito", 
             educationalOffer: newEducationalOffer 
         });
     } catch (error) {
         console.error('Error en createEducationalOffer:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ 
+            message: "Error al crear la oferta educativa",
+            error: process.env.NODE_ENV === 'development' ? error.message : "Error interno del servidor"
+        });
     }
 };
 
