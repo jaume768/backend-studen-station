@@ -26,6 +26,19 @@ const OfferSchema = new mongoose.Schema({
     // Etiquetas para filtrar
     tags: [{ type: String }],
 
+    // Preguntas extra para los candidatos
+    extraQuestions: [{
+        question: {
+            type: String,
+            trim: true
+        },
+        responseType: {
+            type: String,
+            enum: ['text', 'number', 'boolean', 'url'],
+            default: 'text'
+        }
+    }],
+
     // Estado de la oferta: 'pending', 'accepted' o 'cancelled'
     status: { type: String, enum: ['pending', 'accepted', 'cancelled'], default: 'pending' }
 });

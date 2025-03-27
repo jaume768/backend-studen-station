@@ -118,6 +118,17 @@ const educationalOfferSchema = new mongoose.Schema({
         type: [String],
         default: []
     },
+    extraQuestions: [{
+        question: {
+            type: String,
+            trim: true
+        },
+        responseType: {
+            type: String,
+            enum: ['text', 'number', 'boolean', 'url'],
+            default: 'text'
+        }
+    }],
     publisher: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',

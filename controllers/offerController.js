@@ -48,6 +48,7 @@ exports.createOffer = async (req, res) => {
             description: req.body.description,
             requiredProfile: req.body.requiredProfile,
             tags: req.body.tags ? JSON.parse(req.body.tags) : [],
+            extraQuestions: req.body.extraQuestions ? JSON.parse(req.body.extraQuestions) : [],
             publisher: req.user.id,
             status: 'pending',
             companyLogo,
@@ -236,6 +237,7 @@ exports.createEducationalOffer = async (req, res) => {
             description: req.body.description || undefined,
             headerImage: headerImageUrl,
             requirements: req.body.requirements ? JSON.parse(req.body.requirements) : [],
+            extraQuestions: req.body.extraQuestions ? JSON.parse(req.body.extraQuestions) : undefined,
             publisher: req.user.id,
             status: 'pending',
             publicationDate: new Date()
