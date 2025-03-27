@@ -1,8 +1,8 @@
 const Offer = require('../models/Offer');
 const EducationalOffer = require('../models/EducationalOffer');
 const User = require('../models/User');
-const cloudinary = require('../config/cloudinary');
 const streamifier = require('streamifier');
+const cloudinary = require('../config/cloudinary');
 
 /**
  * Crear una nueva oferta.
@@ -741,5 +741,95 @@ exports.getEducationalOffersByUserExternal = async (req, res) => {
             message: 'Error al obtener las ofertas educativas del usuario',
             error: error.message
         });
+    }
+};
+
+/**
+ * Verificar si un usuario ya aplicó a una oferta.
+ */
+exports.checkUserApplication = async (req, res) => {
+    try {
+        const { id: offerId } = req.params;
+        const userId = req.user.id;
+
+        const offer = await Offer.findById(offerId);
+        if (!offer) {
+            return res.status(404).json({ message: "Oferta no encontrada" });
+        }
+
+        // Verificar si el usuario ya aplicó a esta oferta
+        const hasApplied = offer.applications.some(app => 
+            app.user.toString() === userId.toString()
+        );
+
+        res.status(200).json({ hasApplied });
+    } catch (error) {
+        console.error('Error en checkUserApplication:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * Aplicar a una oferta.
+ */
+exports.applyToOffer = async (req, res) => {
+    try {
+        const { id: offerId } = req.params;
+        const userId = req.user.id;
+        const { answers } = req.body;
+
+        // Verificar que la oferta existe
+        const offer = await Offer.findById(offerId);
+        if (!offer) {
+            return res.status(404).json({ message: "Oferta no encontrada" });
+        }
+
+        // Verificar que el usuario no sea el creador de la oferta
+        if (offer.publisher.toString() === userId.toString()) {
+            return res.status(403).json({ 
+                message: "No puedes aplicar a tu propia oferta" 
+            });
+        }
+
+        // Verificar si el usuario ya aplicó
+        const existingApplication = offer.applications.find(
+            app => app.user.toString() === userId.toString()
+        );
+
+        if (existingApplication) {
+            return res.status(400).json({ 
+                message: "Ya has aplicado a esta oferta anteriormente" 
+            });
+        }
+
+        // Crear la aplicación
+        const application = {
+            user: userId,
+            answers: answers.map(answer => ({
+                question: answer.question,
+                responseType: answer.responseType,
+                answer: answer.answer
+            })),
+            status: 'pending',
+            appliedAt: new Date()
+        };
+
+        // Añadir la aplicación a la oferta
+        offer.applications.push(application);
+        await offer.save();
+
+        // Añadir la oferta a las ofertas aplicadas del usuario
+        await User.findByIdAndUpdate(
+            userId, 
+            { $addToSet: { appliedOffers: offerId } }
+        );
+
+        res.status(201).json({ 
+            message: "Aplicación enviada exitosamente",
+            applicationId: application._id
+        });
+    } catch (error) {
+        console.error('Error en applyToOffer:', error);
+        res.status(500).json({ error: error.message });
     }
 };

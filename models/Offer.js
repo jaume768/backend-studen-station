@@ -39,6 +39,28 @@ const OfferSchema = new mongoose.Schema({
         }
     }],
 
+    // Aplicaciones de usuarios a la oferta
+    applications: [{
+        user: { 
+            type: mongoose.Schema.Types.ObjectId, 
+            ref: 'User' 
+        },
+        answers: [{
+            question: { type: String },
+            responseType: { type: String },
+            answer: { type: mongoose.Schema.Types.Mixed }
+        }],
+        status: { 
+            type: String, 
+            enum: ['pending', 'reviewed', 'accepted', 'rejected'], 
+            default: 'pending' 
+        },
+        appliedAt: { 
+            type: Date, 
+            default: Date.now 
+        }
+    }],
+
     // Estado de la oferta: 'pending', 'accepted' o 'cancelled'
     status: { type: String, enum: ['pending', 'accepted', 'cancelled'], default: 'pending' }
 });

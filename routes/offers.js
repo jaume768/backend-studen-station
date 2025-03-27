@@ -43,4 +43,10 @@ router.put('/:id', ensureAuthenticated, offerController.updateOffer);
 // Eliminar oferta
 router.delete('/:id', ensureAuthenticated, offerController.deleteOffer);
 
+// Verificar si el usuario ha aplicado a una oferta
+router.get('/:id/check-application', ensureAuthenticated, offerController.checkUserApplication);
+
+// Aplicar a una oferta
+router.post('/:id/apply', ensureAuthenticated, offerController.applyToOffer);
+
 module.exports = router;
