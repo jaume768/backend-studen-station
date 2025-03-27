@@ -137,7 +137,7 @@ const educationalOfferSchema = new mongoose.Schema({
     status: {
         type: String,
         enum: ['pending', 'accepted', 'rejected'],
-        default: 'pending'
+        default: 'accepted'
     },
     publicationDate: {
         type: Date,

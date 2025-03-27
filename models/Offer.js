@@ -53,7 +53,7 @@ const OfferSchema = new mongoose.Schema({
         status: { 
             type: String, 
             enum: ['pending', 'reviewed', 'accepted', 'rejected'], 
-            default: 'pending' 
+            default: 'pending'
         },
         appliedAt: { 
             type: Date, 
@@ -62,7 +62,7 @@ const OfferSchema = new mongoose.Schema({
     }],
 
     // Estado de la oferta: 'pending', 'accepted' o 'cancelled'
-    status: { type: String, enum: ['pending', 'accepted', 'cancelled'], default: 'pending' }
+    status: { type: String, enum: ['pending', 'accepted', 'cancelled'], default: 'accepted' }
 });
 
 module.exports = mongoose.model('Offer', OfferSchema);
