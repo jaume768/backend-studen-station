@@ -1,5 +1,6 @@
 const Offer = require('../models/Offer');
 const EducationalOffer = require('../models/EducationalOffer');
+const User = require('../models/User');
 const cloudinary = require('../config/cloudinary');
 const streamifier = require('streamifier');
 
@@ -477,16 +478,15 @@ exports.cancelOffer = async (req, res) => {
 exports.getUserOffers = async (req, res) => {
     try {
         const userId = req.user.id;
+        const user = await User.findById(userId);
         
-        // Buscar ofertas de trabajo donde el usuario es el publicador
-        const offers = await Offer.find({ publisher: userId })
-            .sort({ publicationDate: -1 })
-            .lean();
-
-        // Buscar ofertas educativas donde el usuario es el publicador
-        const educationalOffers = await EducationalOffer.find({ publisher: userId })
-            .sort({ publicationDate: -1 })
-            .lean();
+        const offers = await Offer.find({ 
+            companyName: user.companyName
+        }).sort({ publicationDate: -1 });
+        
+        const educationalOffers = await EducationalOffer.find({ 
+            institutionName: user.companyName
+        }).sort({ publicationDate: -1 });
         
         // Combinar los dos tipos de ofertas y ordenar por fecha de publicación
         const allOffers = [...offers, ...educationalOffers].sort((a, b) => 
@@ -507,6 +507,31 @@ exports.getUserOffers = async (req, res) => {
     }
 };
 
+exports.getUserOffersByUsername = async (req, res) => {
+    try {
+        const { username } = req.params;
+        
+        const user = await User.findOne({ username });
+        
+        const offers = await Offer.find({ 
+            companyName: user.companyName,
+            status: "accepted"
+        }).sort({ publicationDate: -1 });
+    
+        return res.status(200).json({ 
+            success: true, 
+            offers: offers 
+        });
+    } catch (error) {
+        console.error('Error al obtener ofertas del usuario:', error);
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Error al obtener las ofertas del usuario', 
+            error: error.message 
+        });
+    }
+};
+
 /**
  * Obtener ofertas educativas publicadas por el usuario autenticado
  */
@@ -516,7 +541,6 @@ exports.getUserEducationalOffers = async (req, res) => {
         
         // Buscar ofertas educativas donde el usuario es el publicador
         const educationalOffers = await EducationalOffer.find({ publisher: userId })
-            .sort({ publicationDate: -1 })
             .lean();
         
         return res.status(200).json({ 
@@ -572,7 +596,7 @@ exports.getAllEducationalOffers = async (req, res) => {
 exports.getEducationalOffersByInstitution = async (req, res) => {
     try {
         // Obtener todas las ofertas educativas (incluyendo pending)
-        const offers = await EducationalOffer.find()
+        const offers = await EducationalOffer.find({ status: "accepted" })
             .populate({
                 path: 'publisher',
                 select: 'username companyName profile professionalType city country'
@@ -643,7 +667,6 @@ exports.getEducationalOffersByUser = async (req, res) => {
         const { username } = req.params;
         
         // Buscar el usuario por su nombre de usuario
-        const User = require('../models/User');
         const user = await User.findOne({ username });
         
         if (!user) {
@@ -657,14 +680,52 @@ exports.getEducationalOffersByUser = async (req, res) => {
         if (user.professionalType !== 4) {
             return res.status(200).json({
                 success: true,
-                offers: [] // Devolver array vacío si no es una institución educativa
+                offers: []
+            });
+        }
+        const offers = await EducationalOffer.find({ institutionName: user.companyName })
+            .sort({ publicationDate: -1 });
+        
+        return res.status(200).json({
+            success: true,
+            offers: offers
+        });
+    } catch (error) {
+        console.error('Error al obtener ofertas educativas por usuario:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error al obtener las ofertas educativas del usuario',
+            error: error.message
+        });
+    }
+};
+
+
+/**
+ * Obtener ofertas educativas publicadas por un usuario externo
+ */
+exports.getEducationalOffersByUserExternal = async (req, res) => {
+    try {
+        const { username } = req.params;
+        
+        // Buscar el usuario por su nombre de usuario
+        const user = await User.findOne({ username });
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "Usuario no encontrado"
             });
         }
 
-        const prova = await EducationalOffer.find({ publisher: user._id })
-        
-        // Buscar todas las ofertas educativas publicadas por este usuario
-        const offers = await EducationalOffer.find({ publisher: user._id })
+        // Verificar si el usuario es una institución educativa (tipo 4)
+        if (user.professionalType !== 4) {
+            return res.status(200).json({
+                success: true,
+                offers: []
+            });
+        }
+        const offers = await EducationalOffer.find({ institutionName: user.companyName, status: "accepted" })
             .sort({ publicationDate: -1 });
         
         return res.status(200).json({

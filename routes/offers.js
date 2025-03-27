@@ -10,6 +10,7 @@ const upload = multer({ storage });
 router.get('/unreviewed', ensureAuthenticated, offerController.getUnreviewedOffers);
 router.get('/search', offerController.searchOffers);
 router.get('/user', ensureAuthenticated, offerController.getUserOffers);
+router.get('/user/:username', offerController.getUserOffersByUsername);
 router.get('/educational-offers/user', ensureAuthenticated, offerController.getUserEducationalOffers);
 router.get('/', offerController.getAllOffers);
 
@@ -23,6 +24,7 @@ router.post('/educational', ensureAuthenticated, upload.fields([
 
 router.get('/educational/institutions', offerController.getEducationalOffersByInstitution);
 router.get('/educational/user/:username', offerController.getEducationalOffersByUser);
+router.get('/educational/user-external/:username', offerController.getEducationalOffersByUserExternal);
 router.get('/educational/:id', offerController.getEducationalOffer);
 router.get('/educational', offerController.getAllEducationalOffers);
 // TODO: Implementar la función updateEducationalOffer en el controlador
