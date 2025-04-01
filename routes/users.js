@@ -31,6 +31,7 @@ router.delete('/favorites/:postId', ensureAuthenticated, userController.removeFa
 router.post('/saved-offers/:offerId', ensureAuthenticated, userController.saveOffer);
 router.delete('/saved-offers/:offerId', ensureAuthenticated, userController.removeSavedOffer);
 router.get('/saved-offers', ensureAuthenticated, userController.getSavedOffers);
+router.get('/applied-offers', ensureAuthenticated, userController.getAppliedOffers);
 
 // Rutas para seguir/dejar de seguir usuarios
 router.post('/follow/:userId', ensureAuthenticated, userController.followUser);

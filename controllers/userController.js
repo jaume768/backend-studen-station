@@ -319,9 +319,38 @@ exports.removeSavedOffer = async (req, res) => {
 
 exports.getSavedOffers = async (req, res) => {
     try {
-        const user = await User.findById(req.user.id).populate('savedOffers');
-        res.status(200).json({ savedOffers: user.savedOffers });
+        const user = await User.findById(req.user.id);
+        if (!user.savedOffers || !Array.isArray(user.savedOffers) || user.savedOffers.length === 0) {
+            return res.status(200).json({ savedOffers: [] });
+        }
+
+        // Obtener detalles completos de las ofertas guardadas
+        const offers = await Offer.find({ _id: { $in: user.savedOffers } });
+        res.status(200).json({ savedOffers: offers });
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.getAppliedOffers = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        
+        // Verificar si el usuario es de tipo creativo
+        if (user.role !== 'Creativo') {
+            return res.status(403).json({ error: 'Solo perfiles creativos pueden ver ofertas aplicadas' });
+        }
+        
+        // Verificar si hay ofertas aplicadas
+        if (!user.appliedOffers || !Array.isArray(user.appliedOffers) || user.appliedOffers.length === 0) {
+            return res.status(200).json({ offers: [] });
+        }
+
+        // Obtener detalles completos de las ofertas aplicadas
+        const offers = await Offer.find({ _id: { $in: user.appliedOffers } });
+        res.status(200).json({ offers });
+    } catch (error) {
+        console.error('Error obteniendo ofertas aplicadas:', error);
         res.status(500).json({ error: error.message });
     }
 };
