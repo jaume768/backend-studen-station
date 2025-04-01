@@ -8,11 +8,21 @@ const Post = require('../models/Post');
  */
 exports.getAllUsers = async (req, res) => {
     try {
-        const { role, search, limit = 20, page = 1 } = req.query;
+        const { role, search, status, limit = 10, page = 1 } = req.query;
         const skip = (page - 1) * limit;
         
         // Construir filtro
         const filter = {};
+        
+        // Por defecto, mostrar usuarios activos a menos que se solicite específicamente inactivos
+        if (status === 'inactive') {
+            filter.isActive = false;
+        } else if (status === 'all') {
+            // No filtrar por isActive si se quieren ver todos
+        } else {
+            filter.isActive = true; // Por defecto, mostrar solo activos
+        }
+        
         if (role) {
             filter.role = role;
         }
@@ -102,8 +112,8 @@ exports.updateUser = async (req, res) => {
         
         res.json({
             success: true,
-            message: 'Usuario actualizado correctamente',
-            user: updatedUser
+            user: updatedUser,
+            message: 'Usuario actualizado correctamente'
         });
     } catch (error) {
         console.error('Error al actualizar usuario:', error);
@@ -112,9 +122,9 @@ exports.updateUser = async (req, res) => {
 };
 
 /**
- * Eliminar usuario
+ * Soft delete usuario (cambiar isActive a false)
  */
-exports.deleteUser = async (req, res) => {
+exports.softDeleteUser = async (req, res) => {
     try {
         const { userId } = req.params;
         
@@ -124,16 +134,78 @@ exports.deleteUser = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
         }
         
-        // Eliminar usuario
+        // Soft delete (cambiar isActive a false)
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { isActive: false },
+            { new: true }
+        ).select('-password');
+        
+        res.json({
+            success: true,
+            user: updatedUser,
+            message: 'Usuario desactivado correctamente'
+        });
+    } catch (error) {
+        console.error('Error al desactivar usuario:', error);
+        res.status(500).json({ success: false, message: 'Error al desactivar el usuario' });
+    }
+};
+
+/**
+ * Restaurar usuario (cambiar isActive a true)
+ */
+exports.restoreUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        // Verificar que el usuario existe
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+        }
+        
+        // Restaurar usuario (cambiar isActive a true)
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { isActive: true },
+            { new: true }
+        ).select('-password');
+        
+        res.json({
+            success: true,
+            user: updatedUser,
+            message: 'Usuario restaurado correctamente'
+        });
+    } catch (error) {
+        console.error('Error al restaurar usuario:', error);
+        res.status(500).json({ success: false, message: 'Error al restaurar el usuario' });
+    }
+};
+
+/**
+ * Hard delete usuario (eliminación permanente - solo para administradores)
+ */
+exports.hardDeleteUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        // Verificar que el usuario existe
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+        }
+        
+        // Hard delete (eliminación permanente)
         await User.findByIdAndDelete(userId);
         
         res.json({
             success: true,
-            message: 'Usuario eliminado correctamente'
+            message: 'Usuario eliminado permanentemente'
         });
     } catch (error) {
-        console.error('Error al eliminar usuario:', error);
-        res.status(500).json({ success: false, message: 'Error al eliminar el usuario' });
+        console.error('Error al eliminar permanentemente usuario:', error);
+        res.status(500).json({ success: false, message: 'Error al eliminar permanentemente el usuario' });
     }
 };
 
@@ -142,11 +214,12 @@ exports.deleteUser = async (req, res) => {
  */
 exports.getAllOffers = async (req, res) => {
     try {
-        const { status, search, publisher, limit = 20, page = 1 } = req.query;
+        const { status, search, publisher, limit = 10, page = 1 } = req.query;
         const skip = (page - 1) * limit;
         
         // Construir filtro
         const filter = {};
+        
         if (status) {
             filter.status = status;
         }
@@ -155,21 +228,22 @@ exports.getAllOffers = async (req, res) => {
             filter.publisher = publisher;
         }
         
-        // Buscar por título, descripción o empresa
+        // Buscar por título, empresa, descripción o ubicación
         if (search) {
             filter.$or = [
                 { position: { $regex: search, $options: 'i' } },
+                { companyName: { $regex: search, $options: 'i' } },
                 { description: { $regex: search, $options: 'i' } },
-                { companyName: { $regex: search, $options: 'i' } }
+                { city: { $regex: search, $options: 'i' } }
             ];
         }
         
         // Obtener resultados paginados
         const offers = await Offer.find(filter)
-            .populate('publisher', 'username name companyName')
             .limit(parseInt(limit))
             .skip(skip)
-            .sort({ createdAt: -1 });
+            .sort({ publicationDate: -1 })
+            .populate('publisher', 'username companyName');
             
         // Obtener conteo total para paginación
         const total = await Offer.countDocuments(filter);
@@ -190,15 +264,98 @@ exports.getAllOffers = async (req, res) => {
 };
 
 /**
+ * Obtener detalles de una oferta de trabajo
+ */
+exports.getOfferDetails = async (req, res) => {
+    try {
+        const { offerId } = req.params;
+        
+        const offer = await Offer.findById(offerId)
+            .populate('publisherId', 'username companyName email');
+            
+        if (!offer) {
+            return res.status(404).json({ success: false, message: 'Oferta no encontrada' });
+        }
+        
+        res.json({
+            success: true,
+            offer
+        });
+    } catch (error) {
+        console.error('Error al obtener detalles de la oferta:', error);
+        res.status(500).json({ success: false, message: 'Error al obtener los detalles de la oferta' });
+    }
+};
+
+/**
+ * Actualizar oferta de trabajo
+ */
+exports.updateOffer = async (req, res) => {
+    try {
+        const { offerId } = req.params;
+        const updates = req.body;
+        
+        // Verificar que la oferta existe
+        const offer = await Offer.findById(offerId);
+        if (!offer) {
+            return res.status(404).json({ success: false, message: 'Oferta no encontrada' });
+        }
+        
+        // Actualizar oferta
+        const updatedOffer = await Offer.findByIdAndUpdate(
+            offerId,
+            { $set: updates },
+            { new: true }
+        );
+        
+        res.json({
+            success: true,
+            offer: updatedOffer,
+            message: 'Oferta actualizada correctamente'
+        });
+    } catch (error) {
+        console.error('Error al actualizar oferta:', error);
+        res.status(500).json({ success: false, message: 'Error al actualizar la oferta' });
+    }
+};
+
+/**
+ * Eliminar oferta de trabajo
+ */
+exports.deleteOffer = async (req, res) => {
+    try {
+        const { offerId } = req.params;
+        
+        // Verificar que la oferta existe
+        const offer = await Offer.findById(offerId);
+        if (!offer) {
+            return res.status(404).json({ success: false, message: 'Oferta no encontrada' });
+        }
+        
+        // Eliminar oferta
+        await Offer.findByIdAndDelete(offerId);
+        
+        res.json({
+            success: true,
+            message: 'Oferta eliminada correctamente'
+        });
+    } catch (error) {
+        console.error('Error al eliminar oferta:', error);
+        res.status(500).json({ success: false, message: 'Error al eliminar la oferta' });
+    }
+};
+
+/**
  * Obtener todas las ofertas educativas con filtros
  */
 exports.getAllEducationalOffers = async (req, res) => {
     try {
-        const { status, search, publisher, limit = 20, page = 1 } = req.query;
+        const { status, search, publisher, limit = 10, page = 1 } = req.query;
         const skip = (page - 1) * limit;
         
         // Construir filtro
         const filter = {};
+        
         if (status) {
             filter.status = status;
         }
@@ -207,21 +364,22 @@ exports.getAllEducationalOffers = async (req, res) => {
             filter.publisher = publisher;
         }
         
-        // Buscar por título, descripción o institución
+        // Buscar por título, institución, descripción o ubicación
         if (search) {
             filter.$or = [
                 { title: { $regex: search, $options: 'i' } },
+                { institutionName: { $regex: search, $options: 'i' } },
                 { description: { $regex: search, $options: 'i' } },
-                { institutionName: { $regex: search, $options: 'i' } }
+                { location: { $regex: search, $options: 'i' } }
             ];
         }
         
         // Obtener resultados paginados
         const offers = await EducationalOffer.find(filter)
-            .populate('publisher', 'username name companyName institutionName')
             .limit(parseInt(limit))
             .skip(skip)
-            .sort({ createdAt: -1 });
+            .sort({ publicationDate: -1 })
+            .populate('publisher', 'username institutionName');
             
         // Obtener conteo total para paginación
         const total = await EducationalOffer.countDocuments(filter);
@@ -242,15 +400,98 @@ exports.getAllEducationalOffers = async (req, res) => {
 };
 
 /**
+ * Obtener detalles de una oferta educativa
+ */
+exports.getEducationalOfferDetails = async (req, res) => {
+    try {
+        const { offerId } = req.params;
+        
+        const offer = await EducationalOffer.findById(offerId)
+            .populate('publisher', 'username institutionName email');
+            
+        if (!offer) {
+            return res.status(404).json({ success: false, message: 'Oferta educativa no encontrada' });
+        }
+        
+        res.json({
+            success: true,
+            offer
+        });
+    } catch (error) {
+        console.error('Error al obtener detalles de la oferta educativa:', error);
+        res.status(500).json({ success: false, message: 'Error al obtener los detalles de la oferta educativa' });
+    }
+};
+
+/**
+ * Actualizar oferta educativa
+ */
+exports.updateEducationalOffer = async (req, res) => {
+    try {
+        const { offerId } = req.params;
+        const updates = req.body;
+        
+        // Verificar que la oferta existe
+        const offer = await EducationalOffer.findById(offerId);
+        if (!offer) {
+            return res.status(404).json({ success: false, message: 'Oferta educativa no encontrada' });
+        }
+        
+        // Actualizar oferta
+        const updatedOffer = await EducationalOffer.findByIdAndUpdate(
+            offerId,
+            { $set: updates },
+            { new: true }
+        );
+        
+        res.json({
+            success: true,
+            offer: updatedOffer,
+            message: 'Oferta educativa actualizada correctamente'
+        });
+    } catch (error) {
+        console.error('Error al actualizar oferta educativa:', error);
+        res.status(500).json({ success: false, message: 'Error al actualizar la oferta educativa' });
+    }
+};
+
+/**
+ * Eliminar oferta educativa
+ */
+exports.deleteEducationalOffer = async (req, res) => {
+    try {
+        const { offerId } = req.params;
+        
+        // Verificar que la oferta existe
+        const offer = await EducationalOffer.findById(offerId);
+        if (!offer) {
+            return res.status(404).json({ success: false, message: 'Oferta educativa no encontrada' });
+        }
+        
+        // Eliminar oferta
+        await EducationalOffer.findByIdAndDelete(offerId);
+        
+        res.json({
+            success: true,
+            message: 'Oferta educativa eliminada correctamente'
+        });
+    } catch (error) {
+        console.error('Error al eliminar oferta educativa:', error);
+        res.status(500).json({ success: false, message: 'Error al eliminar la oferta educativa' });
+    }
+};
+
+/**
  * Obtener todos los posts con filtros
  */
 exports.getAllPosts = async (req, res) => {
     try {
-        const { status, search, creator, limit = 20, page = 1 } = req.query;
+        const { status, search, creator, limit = 10, page = 1 } = req.query;
         const skip = (page - 1) * limit;
         
         // Construir filtro
         const filter = {};
+        
         if (status) {
             filter.status = status;
         }
@@ -269,10 +510,10 @@ exports.getAllPosts = async (req, res) => {
         
         // Obtener resultados paginados
         const posts = await Post.find(filter)
-            .populate('creator', 'username name avatar')
             .limit(parseInt(limit))
             .skip(skip)
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .populate('creator', 'username fullName profile.profilePicture');
             
         // Obtener conteo total para paginación
         const total = await Post.countDocuments(filter);
@@ -293,54 +534,144 @@ exports.getAllPosts = async (req, res) => {
 };
 
 /**
+ * Obtener escuelas/instituciones con filtros
+ */
+exports.getAllSchools = async (req, res) => {
+    try {
+        const { search, country, limit = 10, page = 1 } = req.query;
+        const skip = (page - 1) * limit;
+        
+        // Construir filtro
+        const filter = { role: "Profesional", professionalType: { $in: [4] } }; // Las instituciones tienen professionalType = 4
+        
+        if (country) {
+            filter.country = country;
+        }
+        
+        // Buscar por nombre o ubicación
+        if (search) {
+            filter.$or = [
+                { companyName: { $regex: search, $options: 'i' } },
+                { city: { $regex: search, $options: 'i' } },
+                { country: { $regex: search, $options: 'i' } }
+            ];
+        }
+        
+        // Obtener resultados paginados - Usamos el modelo User porque las instituciones son usuarios profesionales
+        const schools = await User.find(filter)
+            .select('-password')
+            .limit(parseInt(limit))
+            .skip(skip)
+            .sort({ companyName: 1 });
+            
+        // Obtener conteo total para paginación
+        const total = await User.countDocuments(filter);
+        
+        // Para cada escuela, contar sus programas educativos
+        const schoolsWithCounts = await Promise.all(schools.map(async (school) => {
+            const programCount = await EducationalOffer.countDocuments({ publisher: school._id });
+            
+            return {
+                _id: school._id,
+                name: school.companyName || school.fullName,
+                logo: school.profile?.profilePicture,
+                city: school.city,
+                country: school.country,
+                website: school.social?.sitioWeb,
+                programCount,
+                email: school.email
+            };
+        }));
+        
+        res.json({
+            success: true,
+            schools: schoolsWithCounts,
+            pagination: {
+                total,
+                page: parseInt(page),
+                pages: Math.ceil(total / limit)
+            }
+        });
+    } catch (error) {
+        console.error('Error al obtener escuelas:', error);
+        res.status(500).json({ success: false, message: 'Error al obtener las escuelas' });
+    }
+};
+
+/**
  * Obtener estadísticas generales para el dashboard
  */
 exports.getDashboardStats = async (req, res) => {
     try {
-        // Usuarios
-        const totalUsers = await User.countDocuments();
-        const totalCreativos = await User.countDocuments({ role: 'Creativo' });
-        const totalProfesionales = await User.countDocuments({ role: 'Profesional' });
+        // Contar usuarios por rol
+        const usersByRole = await User.aggregate([
+            { $group: { _id: "$role", count: { $sum: 1 } } }
+        ]);
         
-        // Ofertas
-        const totalOffers = await Offer.countDocuments();
-        const activeOffers = await Offer.countDocuments({ status: 'activa' });
+        // Contar usuarios activos vs inactivos
+        const usersByStatus = await User.aggregate([
+            { $group: { _id: "$isActive", count: { $sum: 1 } } }
+        ]);
         
-        // Ofertas educativas
-        const totalEducationalOffers = await EducationalOffer.countDocuments();
+        // Contar ofertas por estado
+        const offersByStatus = await Offer.aggregate([
+            { $group: { _id: "$status", count: { $sum: 1 } } }
+        ]);
         
-        // Posts
-        const totalPosts = await Post.countDocuments();
+        // Contar ofertas educativas por estado
+        const educationalOffersByStatus = await EducationalOffer.aggregate([
+            { $group: { _id: "$status", count: { $sum: 1 } } }
+        ]);
         
-        // Usuarios nuevos en los últimos 30 días
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const newUsers = await User.countDocuments({ createdAt: { $gte: thirtyDaysAgo } });
+        // Contar posts
+        const postsCount = await Post.countDocuments();
+        
+        // Usuarios nuevos en el último mes
+        const lastMonth = new Date();
+        lastMonth.setMonth(lastMonth.getMonth() - 1);
+        
+        const newUsersCount = await User.countDocuments({
+            createdAt: { $gte: lastMonth }
+        });
+        
+        // Ofertas nuevas en el último mes
+        const newOffersCount = await Offer.countDocuments({
+            publicationDate: { $gte: lastMonth }
+        });
         
         res.json({
             success: true,
             stats: {
                 usuarios: {
-                    total: totalUsers,
-                    creativos: totalCreativos,
-                    profesionales: totalProfesionales,
-                    nuevos30Dias: newUsers
+                    total: await User.countDocuments(),
+                    nuevos30Dias: newUsersCount,
+                    creativos: usersByRole.find(item => item._id === 'Creativo')?.count || 0,
+                    profesionales: usersByRole.find(item => item._id === 'Profesional')?.count || 0,
+                    admin: usersByRole.find(item => item._id === 'Admin')?.count || 0,
+                    activos: usersByStatus.find(item => item._id === true)?.count || 0,
+                    inactivos: usersByStatus.find(item => item._id === false)?.count || 0
                 },
                 ofertas: {
-                    total: totalOffers,
-                    activas: activeOffers
+                    total: await Offer.countDocuments(),
+                    nuevas30Dias: newOffersCount,
+                    activas: offersByStatus.find(item => item._id === 'accepted')?.count || 0,
+                    pendientes: offersByStatus.find(item => item._id === 'pending')?.count || 0,
+                    canceladas: offersByStatus.find(item => item._id === 'cancelled')?.count || 0
                 },
                 ofertasEducativas: {
-                    total: totalEducationalOffers
+                    total: await EducationalOffer.countDocuments(),
+                    activas: educationalOffersByStatus.find(item => item._id === 'accepted')?.count || 0,
+                    pendientes: educationalOffersByStatus.find(item => item._id === 'pending')?.count || 0,
+                    rechazadas: educationalOffersByStatus.find(item => item._id === 'rejected')?.count || 0
                 },
                 posts: {
-                    total: totalPosts
+                    total: postsCount
                 }
             }
         });
     } catch (error) {
-        console.error('Error al obtener estadísticas del dashboard:', error);
-        res.status(500).json({ success: false, message: 'Error al obtener las estadísticas' });
+        console.error('Error al obtener estadísticas:', error);
+        res.status(500).json({ success: false, message: 'Error al obtener las estadísticas del dashboard' });
     }
 };
 
@@ -351,48 +682,46 @@ exports.createAdmin = async (req, res) => {
     try {
         const { username, email, password, fullName } = req.body;
         
-        // Verificar si ya existe un usuario con ese email o username
-        const existingUser = await User.findOne({ 
+        // Verificar si el usuario ya existe
+        const existingUser = await User.findOne({
             $or: [{ email }, { username }]
         });
         
         if (existingUser) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'El correo electrónico o nombre de usuario ya está en uso' 
+            return res.status(400).json({
+                success: false,
+                message: 'El usuario ya existe con ese email o nombre de usuario'
             });
         }
         
-        // Importar bcrypt para hashear la contraseña
-        const bcrypt = require('bcryptjs');
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-        
-        // Crear nuevo usuario administrador
+        // Crear nuevo usuario con rol de Admin
         const newAdmin = new User({
             username,
             email,
-            password: hashedPassword,
             fullName,
+            password, // Se encriptará en el middleware pre-save
             role: 'Admin',
             isAdmin: true,
-            isVerified: true
+            isActive: true,
+            isVerified: true,
+            profileCompleted: true
         });
         
         await newAdmin.save();
         
         res.status(201).json({
             success: true,
-            message: 'Usuario administrador creado correctamente',
-            user: {
+            message: 'Administrador creado correctamente',
+            admin: {
                 _id: newAdmin._id,
                 username: newAdmin.username,
                 email: newAdmin.email,
+                fullName: newAdmin.fullName,
                 role: newAdmin.role
             }
         });
     } catch (error) {
-        console.error('Error al crear usuario administrador:', error);
-        res.status(500).json({ success: false, message: 'Error al crear el usuario administrador' });
+        console.error('Error al crear administrador:', error);
+        res.status(500).json({ success: false, message: 'Error al crear el administrador' });
     }
 };
