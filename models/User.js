@@ -6,7 +6,8 @@ const UserSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
     password: { type: String }, // Puede quedar vacío en registro con Google
     googleId: { type: String },
-    role: { type: String, enum: ['Creativo', 'Profesional'] },
+    role: { type: String, enum: ['Creativo', 'Profesional', 'Admin'] },
+    isAdmin: { type: Boolean, default: false }, // Campo adicional para facilitar verificaciones
     dateOfBirth: { type: Date },
     country: { type: String },
     city: { type: String },

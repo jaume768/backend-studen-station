@@ -11,6 +11,12 @@ router.post('/register', upload.single('profilePicture'), authController.registe
 // Login local
 router.post('/login', authController.login);
 
+// Login para administradores
+router.post('/admin-login', authController.adminLogin);
+
+// Verificar token de administrador
+router.get('/verify-admin-token', authController.verifyAdminToken);
+
 // Olvidé mi contraseña
 router.post('/forgot-password', authController.forgotPassword);
 

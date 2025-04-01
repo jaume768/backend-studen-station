@@ -335,3 +335,146 @@ exports.logout = (req, res) => {
     req.logout();
     res.status(200).json({ message: 'Sesión cerrada' });
 };
+
+// Autenticación para administradores
+exports.adminLogin = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        
+        // Verificar que se proporcionan email y password
+        if (!email || !password) {
+            return res.status(400).json({ 
+                success: false,
+                message: 'Por favor, proporcione email y contraseña' 
+            });
+        }
+        
+        // Buscar el usuario por email
+        const user = await User.findOne({ email });
+        
+        // Verificar que el usuario existe
+        if (!user) {
+            return res.status(401).json({ 
+                success: false,
+                message: 'Credenciales incorrectas' 
+            });
+        }
+        
+        // Verificar que el usuario es un administrador
+        if (user.role !== 'Admin' && !user.isAdmin) {
+            return res.status(403).json({ 
+                success: false,
+                message: 'No tienes permisos de administrador' 
+            });
+        }
+        
+        // Verificar contraseña
+        const isMatch = await bcrypt.compare(password, user.password);
+        
+        if (!isMatch) {
+            return res.status(401).json({ 
+                success: false,
+                message: 'Credenciales incorrectas' 
+            });
+        }
+        
+        // Generar token JWT
+        const payload = {
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            isAdmin: user.isAdmin,
+        };
+        
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
+        
+        // Retornar token y datos básicos del usuario
+        res.json({
+            success: true,
+            token,
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+                fullName: user.fullName,
+                role: user.role,
+                isAdmin: user.isAdmin,
+                profile: user.profile,
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error en el login de administrador:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Error en el servidor' 
+        });
+    }
+};
+
+// Verificar si el token es válido y pertenece a un administrador
+exports.verifyAdminToken = async (req, res) => {
+    try {
+        // Obtener el token del header Authorization
+        const authHeader = req.headers.authorization;
+        if (!authHeader) {
+            return res.status(401).json({ 
+                success: false,
+                message: 'No autorizado, falta el token' 
+            });
+        }
+        
+        const token = authHeader.split(' ')[1];
+        
+        // Verificar el token JWT
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        
+        // Verificar que el usuario existe en la base de datos
+        const user = await User.findById(decoded.id).select('-password');
+        
+        if (!user) {
+            return res.status(401).json({ 
+                success: false,
+                message: 'Usuario no encontrado' 
+            });
+        }
+        
+        // Verificar que el usuario es un administrador
+        if (user.role !== 'Admin' && !user.isAdmin) {
+            return res.status(403).json({ 
+                success: false,
+                message: 'No tienes permisos de administrador' 
+            });
+        }
+        
+        // Devolver información del usuario
+        res.json({
+            success: true,
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+                fullName: user.fullName,
+                role: user.role,
+                isAdmin: user.isAdmin,
+                profile: user.profile,
+            },
+            isAdmin: true
+        });
+        
+    } catch (error) {
+        if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+            return res.status(401).json({ 
+                success: false,
+                message: 'Token inválido o expirado' 
+            });
+        }
+        
+        console.error('Error al verificar token de administrador:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Error en el servidor' 
+        });
+    }
+};

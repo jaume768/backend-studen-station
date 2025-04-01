@@ -14,3 +14,17 @@ exports.ensureAuthenticated = (req, res, next) => {
         return res.status(401).json({ message: 'Token inválido' });
     }
 };
+
+exports.ensureAdmin = (req, res, next) => {
+    // Verificar que el usuario está autenticado
+    if (!req.user) {
+        return res.status(401).json({ message: 'No autorizado, se requiere autenticación' });
+    }
+    
+    // Verificar que el usuario es un administrador
+    if (req.user.role !== 'Admin' && !req.user.isAdmin) {
+        return res.status(403).json({ message: 'Acceso denegado, se requieren permisos de administrador' });
+    }
+    
+    next();
+};

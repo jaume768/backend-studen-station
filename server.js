@@ -34,6 +34,7 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/folders', require('./routes/folders'));
 app.use('/api/posts', require('./routes/posts'));
 app.use('/api/offers', require('./routes/offers'));
+app.use('/api/admin', require('./routes/admin'));
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
