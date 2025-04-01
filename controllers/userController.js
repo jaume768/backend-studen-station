@@ -173,18 +173,31 @@ exports.addFavorite = async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
         
-        // Crear un nuevo favorito con la imagen específica
+        if (Array.isArray(user.favorites)) {
+            user.favorites = user.favorites.filter(fav => {
+                if (typeof fav === 'object' && fav.postId && fav.savedImage) {
+                    return true;
+                }
+                return false;
+            });
+        } else {
+            user.favorites = [];
+        }
+        
         const newFavorite = {
             postId,
             savedImage: imageUrl,
             savedAt: new Date()
-        };
-        
-        // Añadir a favoritos (siempre como un nuevo elemento)
+        };   
+
         user.favorites.push(newFavorite);
-        await user.save();
         
-        res.status(200).json({ message: 'Imagen guardada en favoritos', favorites: user.favorites });
+        try {
+            await user.save();
+            res.status(200).json({ message: 'Imagen guardada en favoritos', favorites: user.favorites });
+        } catch (saveError) {
+            res.status(500).json({ error: saveError.message });
+        }
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -192,16 +205,14 @@ exports.addFavorite = async (req, res) => {
 
 exports.removeFavorite = async (req, res) => {
     const postId = req.params.postId;
-    const { imageUrl } = req.body || {}; // Obtener la URL de la imagen si se proporciona
+    const { imageUrl } = req.body || {};
     
     try {
         const user = await User.findById(req.user.id);
         
-        // Si se proporciona una URL de imagen específica, eliminar solo ese favorito
         if (imageUrl) {
             user.favorites = user.favorites.filter(fav => {
                 if (typeof fav === 'object' && fav.postId && fav.savedImage) {
-                    // Eliminar solo si coincide tanto el postId como la imagen
                     return !(fav.postId.toString() === postId && fav.savedImage === imageUrl);
                 }
                 return true; // Mantener otros tipos de favoritos
