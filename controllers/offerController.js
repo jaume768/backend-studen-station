@@ -833,3 +833,130 @@ exports.applyToOffer = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+/**
+ * Obtener ofertas publicadas por la empresa autenticada.
+ * Solo los usuarios con professionalType 1, 2 o 4 pueden acceder a esta función.
+ */
+exports.getCompanyOffers = async (req, res) => {
+    try {
+        // Verificar que el usuario autenticado es una empresa o institución
+        const allowedTypes = [1, 2, 4];
+        if (!allowedTypes.includes(req.user.professionalType)) {
+            return res.status(403).json({ 
+                message: "No tienes permiso para acceder a esta función. Solo las empresas e instituciones pueden ver sus ofertas publicadas.",
+                professionalType: req.user.professionalType 
+            });
+        }
+
+        const user = await User.findById(req.user.id);
+
+        // Filtrar por estado si se proporciona
+        const statusFilter = req.query.status;
+        const filter = { companyName: user.companyName };
+        
+        if (statusFilter && statusFilter !== 'todas') {
+            filter.status = statusFilter;
+        }
+        
+        // Filtrar ofertas de prácticas si se solicita
+        if (req.query.practicas === 'true') {
+            filter.tags = { $in: ['prácticas', 'practicas', 'internship'] };
+        }
+
+        // Obtener las ofertas
+        const offers = await Offer.find(filter)
+            .sort({ createdAt: -1 })
+            .populate('publisher', 'username name')
+            .populate({
+                path: 'applications',
+                select: 'user status createdAt reviewedAt',
+                populate: {
+                    path: 'user',
+                    select: 'username name email avatar'
+                }
+            });
+
+        // Añadir información adicional a cada oferta
+        const processedOffers = offers.map(offer => {
+            const offerObj = offer.toObject();
+            
+            // Calcular número de aplicaciones y cuántas han sido revisadas
+            offerObj.applicationsCount = offer.applications ? offer.applications.length : 0;
+            offerObj.reviewedApplicationsCount = offer.applications ? 
+                offer.applications.filter(app => app.reviewedAt).length : 0;
+            
+            return offerObj;
+        });
+
+        res.json({ 
+            success: true, 
+            offers: processedOffers,
+            count: processedOffers.length
+        });
+    } catch (error) {
+        console.error('Error al obtener ofertas de la empresa:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Error al obtener las ofertas publicadas por la empresa' 
+        });
+    }
+};
+
+/**
+ * Actualizar el estado de una oferta.
+ * Solo el publicador de la oferta puede actualizar su estado.
+ */
+exports.updateOfferStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        
+        // Validar que se proporciona un estado válido
+        const validStatuses = ['activa', 'inactiva', 'pendiente', 'pausada'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'El estado proporcionado no es válido' 
+            });
+        }
+
+        // Buscar la oferta y verificar que el usuario autenticado es el publicador
+        const offer = await Offer.findById(id);
+        
+        if (!offer) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Oferta no encontrada' 
+            });
+        }
+
+        // Verificar que el usuario autenticado es el publicador de la oferta
+        if (offer.publisher.toString() !== req.user.id) {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'No tienes permiso para actualizar el estado de esta oferta' 
+            });
+        }
+
+        // Actualizar el estado de la oferta
+        offer.status = status;
+        await offer.save();
+
+        res.json({ 
+            success: true, 
+            message: 'Estado de la oferta actualizado correctamente',
+            offer: {
+                _id: offer._id,
+                position: offer.position,
+                status: offer.status
+            }
+        });
+    } catch (error) {
+        console.error('Error al actualizar el estado de la oferta:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Error al actualizar el estado de la oferta' 
+        });
+    }
+};

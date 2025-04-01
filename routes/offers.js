@@ -10,6 +10,7 @@ const upload = multer({ storage });
 router.get('/unreviewed', ensureAuthenticated, offerController.getUnreviewedOffers);
 router.get('/search', offerController.searchOffers);
 router.get('/user', ensureAuthenticated, offerController.getUserOffers);
+router.get('/company', ensureAuthenticated, offerController.getCompanyOffers);
 router.get('/user/:username', offerController.getUserOffersByUsername);
 router.get('/educational-offers/user', ensureAuthenticated, offerController.getUserEducationalOffers);
 router.get('/', offerController.getAllOffers);
@@ -33,6 +34,9 @@ router.get('/educational', offerController.getAllEducationalOffers);
 //     { name: 'gallery', maxCount: 5 },
 //     { name: 'brochure', maxCount: 1 }
 // ]), offerController.updateEducationalOffer);
+
+// Actualizar estado de una oferta
+router.put('/:id/status', ensureAuthenticated, offerController.updateOfferStatus);
 
 // Obtener oferta por ID
 router.get('/:id', offerController.getOffer);
