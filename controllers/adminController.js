@@ -271,7 +271,7 @@ exports.getOfferDetails = async (req, res) => {
         const { offerId } = req.params;
         
         const offer = await Offer.findById(offerId)
-            .populate('publisherId', 'username companyName email');
+            .populate('publisher', 'username companyName email');
             
         if (!offer) {
             return res.status(404).json({ success: false, message: 'Oferta no encontrada' });
