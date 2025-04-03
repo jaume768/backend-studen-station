@@ -38,6 +38,9 @@ router.get('/educational', offerController.getAllEducationalOffers);
 // Actualizar estado de una oferta
 router.put('/:id/status', ensureAuthenticated, offerController.updateOfferStatus);
 
+// Actualizar estado de una oferta educativa
+router.put('/educational/:id/status', ensureAuthenticated, offerController.updateEducationalOfferStatus);
+
 // Obtener oferta por ID
 router.get('/:id', offerController.getOffer);
 

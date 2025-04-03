@@ -2,6 +2,9 @@ const User = require('../models/User');
 const Offer = require('../models/Offer');
 const EducationalOffer = require('../models/EducationalOffer');
 const Post = require('../models/Post');
+const BlogPost = require('../models/BlogPost');
+const cloudinary = require('../config/cloudinary');
+const streamifier = require('streamifier');
 
 /**
  * Obtener todos los usuarios con posibilidad de filtrado
@@ -723,5 +726,405 @@ exports.createAdmin = async (req, res) => {
     } catch (error) {
         console.error('Error al crear administrador:', error);
         res.status(500).json({ success: false, message: 'Error al crear el administrador' });
+    }
+};
+
+/**
+ * Actualizar el estado de una oferta de trabajo.
+ * Solo los administradores pueden acceder a esta función.
+ */
+exports.updateOfferStatus = async (req, res) => {
+    try {
+        const { offerId } = req.params;
+        const { status } = req.body;
+        
+        // Validar que el estado es válido según el modelo
+        const validStatuses = ['pending', 'accepted', 'cancelled'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Estado no válido. Los estados permitidos son: pending, accepted, cancelled'
+            });
+        }
+
+        // Buscar la oferta por ID
+        const offer = await Offer.findById(offerId);
+        if (!offer) {
+            return res.status(404).json({
+                success: false,
+                message: 'Oferta no encontrada'
+            });
+        }
+
+        // Actualizar el estado
+        offer.status = status;
+        await offer.save();
+
+        res.json({
+            success: true,
+            message: 'Estado de la oferta actualizado correctamente',
+            offer: {
+                _id: offer._id,
+                title: offer.position,
+                status: offer.status
+            }
+        });
+    } catch (error) {
+        console.error('Error al actualizar el estado de la oferta:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error del servidor al actualizar el estado de la oferta',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Actualizar el estado de una oferta educativa.
+ * Solo los administradores pueden acceder a esta función.
+ */
+exports.updateEducationalOfferStatus = async (req, res) => {
+    try {
+        const { offerId } = req.params;
+        const { status } = req.body;
+        
+        // Validar que el estado es válido según el modelo
+        const validStatuses = ['pending', 'accepted', 'rejected'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Estado no válido. Los estados permitidos son: pending, accepted, rejected'
+            });
+        }
+
+        // Buscar la oferta educativa por ID
+        const offer = await EducationalOffer.findById(offerId);
+        if (!offer) {
+            return res.status(404).json({
+                success: false,
+                message: 'Oferta educativa no encontrada'
+            });
+        }
+
+        // Actualizar el estado
+        offer.status = status;
+        await offer.save();
+
+        res.json({
+            success: true,
+            message: 'Estado de la oferta educativa actualizado correctamente',
+            offer: {
+                _id: offer._id,
+                title: offer.programName,
+                status: offer.status
+            }
+        });
+    } catch (error) {
+        console.error('Error al actualizar el estado de la oferta educativa:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error del servidor al actualizar el estado de la oferta educativa',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Eliminar oferta educativa
+ */
+exports.deleteEducationalOffer = async (req, res) => {
+    try {
+        const { offerId } = req.params;
+        
+        // Verificar que la oferta existe
+        const offer = await EducationalOffer.findById(offerId);
+        if (!offer) {
+            return res.status(404).json({ success: false, message: 'Oferta educativa no encontrada' });
+        }
+        
+        // Eliminar oferta
+        await EducationalOffer.findByIdAndDelete(offerId);
+        
+        res.json({
+            success: true,
+            message: 'Oferta educativa eliminada correctamente'
+        });
+    } catch (error) {
+        console.error('Error al eliminar oferta educativa:', error);
+        res.status(500).json({ success: false, message: 'Error al eliminar la oferta educativa' });
+    }
+};
+
+/**
+ * Obtener todos los posts del blog con posibilidad de filtrado
+ */
+exports.getAllBlogPosts = async (req, res) => {
+    try {
+        const { status, category, featured, search, limit = 10, page = 1 } = req.query;
+        const skip = (page - 1) * limit;
+        
+        // Construir filtro
+        const filter = {};
+        
+        if (status) filter.status = status;
+        if (category) filter.category = category;
+        if (featured) filter.featured = featured === 'true';
+        
+        // Buscar por título, extracto o contenido
+        if (search) {
+            filter.$or = [
+                { title: { $regex: search, $options: 'i' } },
+                { excerpt: { $regex: search, $options: 'i' } },
+                { content: { $regex: search, $options: 'i' } },
+                { author: { $regex: search, $options: 'i' } }
+            ];
+        }
+        
+        // Obtener resultados paginados
+        const blogPosts = await BlogPost.find(filter)
+            .populate('createdBy', 'fullName username')
+            .limit(parseInt(limit))
+            .skip(skip)
+            .sort({ publishedDate: -1 });
+            
+        // Obtener conteo total para paginación
+        const total = await BlogPost.countDocuments(filter);
+        
+        res.json({
+            success: true,
+            blogPosts,
+            pagination: {
+                total,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                pages: Math.ceil(total / limit)
+            }
+        });
+    } catch (error) {
+        console.error('Error al obtener posts del blog:', error);
+        res.status(500).json({ success: false, message: 'Error al obtener posts del blog' });
+    }
+};
+
+/**
+ * Crear un nuevo post para el blog
+ */
+exports.createBlogPost = async (req, res) => {
+    try {
+        // Procesar imagen del post
+        let imageUrl = '';
+        if (req.file) {
+            const streamUpload = (file) => {
+                return new Promise((resolve, reject) => {
+                    const stream = cloudinary.uploader.upload_stream(
+                        { folder: 'blog_posts' },
+                        (error, result) => {
+                            if (result) resolve(result);
+                            else reject(error);
+                        }
+                    );
+                    streamifier.createReadStream(file.buffer).pipe(stream);
+                });
+            };
+            const result = await streamUpload(req.file);
+            imageUrl = result.secure_url;
+        } else if (req.body.imageUrl) {
+            // Permitir URL de imagen externa
+            imageUrl = req.body.imageUrl;
+        } else {
+            return res.status(400).json({ success: false, message: 'Se requiere una imagen para el post' });
+        }
+        
+        // Procesar etiquetas
+        const tags = req.body.tags
+            ? (typeof req.body.tags === 'string'
+                ? req.body.tags.split(',').map((tag) => tag.trim())
+                : req.body.tags)
+            : [];
+
+        // Crear el nuevo post
+        const newBlogPost = new BlogPost({
+            title: req.body.title,
+            content: req.body.content,
+            excerpt: req.body.excerpt,
+            image: imageUrl,
+            category: req.body.category,
+            author: req.body.author,
+            featured: req.body.featured === 'true',
+            size: req.body.size || 'medium-blog',
+            tags,
+            status: req.body.status || 'published',
+            createdBy: req.user._id
+        });
+        
+        await newBlogPost.save();
+        
+        res.status(201).json({
+            success: true,
+            message: 'Post de blog creado exitosamente',
+            blogPost: newBlogPost
+        });
+    } catch (error) {
+        console.error('Error al crear post de blog:', error);
+        res.status(500).json({ success: false, message: 'Error al crear el post de blog', error: error.message });
+    }
+};
+
+/**
+ * Obtener detalles de un post del blog
+ */
+exports.getBlogPostDetails = async (req, res) => {
+    try {
+        const { postId } = req.params;
+        
+        const blogPost = await BlogPost.findById(postId)
+            .populate('createdBy', 'fullName username');
+            
+        if (!blogPost) {
+            return res.status(404).json({ success: false, message: 'Post de blog no encontrado' });
+        }
+        
+        res.json({
+            success: true,
+            blogPost
+        });
+    } catch (error) {
+        console.error('Error al obtener detalles del post de blog:', error);
+        res.status(500).json({ success: false, message: 'Error al obtener detalles del post de blog' });
+    }
+};
+
+/**
+ * Actualizar un post del blog
+ */
+exports.updateBlogPost = async (req, res) => {
+    try {
+        const { postId } = req.params;
+        
+        // Verificar que el post existe
+        const blogPost = await BlogPost.findById(postId);
+        if (!blogPost) {
+            return res.status(404).json({ success: false, message: 'Post de blog no encontrado' });
+        }
+        
+        // Procesar imagen si se proporciona una nueva
+        let imageUrl = blogPost.image; // Mantener la imagen actual por defecto
+        if (req.file) {
+            const streamUpload = (file) => {
+                return new Promise((resolve, reject) => {
+                    const stream = cloudinary.uploader.upload_stream(
+                        { folder: 'blog_posts' },
+                        (error, result) => {
+                            if (result) resolve(result);
+                            else reject(error);
+                        }
+                    );
+                    streamifier.createReadStream(file.buffer).pipe(stream);
+                });
+            };
+            const result = await streamUpload(req.file);
+            imageUrl = result.secure_url;
+        } else if (req.body.imageUrl && req.body.imageUrl !== blogPost.image) {
+            // Actualizar con URL externa si es diferente
+            imageUrl = req.body.imageUrl;
+        }
+        
+        // Procesar etiquetas
+        const tags = req.body.tags
+            ? (typeof req.body.tags === 'string'
+                ? req.body.tags.split(',').map((tag) => tag.trim())
+                : req.body.tags)
+            : blogPost.tags;
+            
+        // Actualizar el post
+        const updatedBlogPost = await BlogPost.findByIdAndUpdate(
+            postId,
+            {
+                title: req.body.title || blogPost.title,
+                content: req.body.content || blogPost.content,
+                excerpt: req.body.excerpt || blogPost.excerpt,
+                image: imageUrl,
+                category: req.body.category || blogPost.category,
+                author: req.body.author || blogPost.author,
+                featured: req.body.featured === 'true' || (req.body.featured !== 'false' && blogPost.featured),
+                size: req.body.size || blogPost.size,
+                tags,
+                status: req.body.status || blogPost.status
+            },
+            { new: true, runValidators: true }
+        );
+        
+        res.json({
+            success: true,
+            message: 'Post de blog actualizado exitosamente',
+            blogPost: updatedBlogPost
+        });
+    } catch (error) {
+        console.error('Error al actualizar post de blog:', error);
+        res.status(500).json({ success: false, message: 'Error al actualizar el post de blog', error: error.message });
+    }
+};
+
+/**
+ * Eliminar un post del blog
+ */
+exports.deleteBlogPost = async (req, res) => {
+    try {
+        const { postId } = req.params;
+        
+        // Verificar que el post existe
+        const blogPost = await BlogPost.findById(postId);
+        if (!blogPost) {
+            return res.status(404).json({ success: false, message: 'Post de blog no encontrado' });
+        }
+        
+        // Eliminar el post
+        await BlogPost.findByIdAndDelete(postId);
+        
+        res.json({
+            success: true,
+            message: 'Post de blog eliminado exitosamente'
+        });
+    } catch (error) {
+        console.error('Error al eliminar post de blog:', error);
+        res.status(500).json({ success: false, message: 'Error al eliminar el post de blog' });
+    }
+};
+
+/**
+ * Actualizar el estado de un post del blog (publicado, borrador, archivado)
+ */
+exports.updateBlogPostStatus = async (req, res) => {
+    try {
+        const { postId } = req.params;
+        const { status } = req.body;
+        
+        // Validar que el estado es válido
+        const validStatuses = ['draft', 'published', 'archived'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Estado no válido. Los estados permitidos son: draft, published, archived'
+            });
+        }
+        
+        // Verificar que el post existe
+        const blogPost = await BlogPost.findById(postId);
+        if (!blogPost) {
+            return res.status(404).json({ success: false, message: 'Post de blog no encontrado' });
+        }
+        
+        // Actualizar el estado
+        blogPost.status = status;
+        await blogPost.save();
+        
+        res.json({
+            success: true,
+            message: 'Estado del post de blog actualizado exitosamente',
+            status: blogPost.status
+        });
+    } catch (error) {
+        console.error('Error al actualizar el estado del post de blog:', error);
+        res.status(500).json({ success: false, message: 'Error al actualizar el estado del post de blog' });
     }
 };

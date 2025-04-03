@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
 const { ensureAuthenticated, ensureAdmin } = require('../middlewares/auth');
+const multer = require('multer');
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 // Todas las rutas de administración requieren autenticación y rol de administrador
 router.use(ensureAuthenticated, ensureAdmin);
@@ -19,15 +22,25 @@ router.get('/offers', adminController.getAllOffers);
 router.get('/offers/:offerId', adminController.getOfferDetails);
 router.put('/offers/:offerId', adminController.updateOffer);
 router.delete('/offers/:offerId', adminController.deleteOffer);
+router.put('/offers/:offerId/status', adminController.updateOfferStatus);
 
 // Gestión de ofertas educativas
 router.get('/educational-offers', adminController.getAllEducationalOffers);
 router.get('/educational-offers/:offerId', adminController.getEducationalOfferDetails);
 router.put('/educational-offers/:offerId', adminController.updateEducationalOffer);
 router.delete('/educational-offers/:offerId', adminController.deleteEducationalOffer);
+router.put('/educational-offers/:offerId/status', adminController.updateEducationalOfferStatus);
 
 // Gestión de posts
 router.get('/posts', adminController.getAllPosts);
+
+// Gestión de posts de blog
+router.get('/blog', adminController.getAllBlogPosts);
+router.get('/blog/:postId', adminController.getBlogPostDetails);
+router.post('/blog', upload.single('image'), adminController.createBlogPost);
+router.put('/blog/:postId', upload.single('image'), adminController.updateBlogPost);
+router.delete('/blog/:postId', adminController.deleteBlogPost);
+router.put('/blog/:postId/status', adminController.updateBlogPostStatus);
 
 // Gestión de escuelas/instituciones
 router.get('/schools', adminController.getAllSchools);

@@ -540,10 +540,14 @@ exports.getUserOffersByUsername = async (req, res) => {
 exports.getUserEducationalOffers = async (req, res) => {
     try {
         const userId = req.user.id;
+        const user = await User.findById(userId);
+        console.log(user);
         
         // Buscar ofertas educativas donde el usuario es el publicador
-        const educationalOffers = await EducationalOffer.find({ publisher: userId })
+        const educationalOffers = await EducationalOffer.find({ institutionName: user.companyName })
             .lean();
+
+        console.log(educationalOffers);    
         
         return res.status(200).json({ 
             success: true, 
@@ -913,7 +917,7 @@ exports.updateOfferStatus = async (req, res) => {
         const { status } = req.body;
         
         // Validar que se proporciona un estado válido
-        const validStatuses = ['activa', 'inactiva', 'pendiente', 'pausada'];
+        const validStatuses = ['pending', 'accepted', 'cancelled'];
         if (!validStatuses.includes(status)) {
             return res.status(400).json({ 
                 success: false, 
@@ -931,8 +935,8 @@ exports.updateOfferStatus = async (req, res) => {
             });
         }
 
-        // Verificar que el usuario autenticado es el publicador de la oferta
-        if (offer.publisher.toString() !== req.user.id) {
+        // Verificar que el usuario autenticado es el publicador de la oferta o un administrador
+        if (offer.publisher.toString() !== req.user.id && req.user.role !== 'admin') {
             return res.status(403).json({ 
                 success: false, 
                 message: 'No tienes permiso para actualizar el estado de esta oferta' 
@@ -957,6 +961,64 @@ exports.updateOfferStatus = async (req, res) => {
         res.status(500).json({ 
             success: false, 
             message: 'Error al actualizar el estado de la oferta' 
+        });
+    }
+};
+
+/**
+ * Actualizar el estado de una oferta educativa.
+ * Solo el publicador de la oferta puede actualizar su estado o un administrador.
+ */
+exports.updateEducationalOfferStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        
+        // Validar que se proporciona un estado válido
+        const validStatuses = ['pending', 'accepted', 'rejected'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'El estado proporcionado no es válido' 
+            });
+        }
+
+        // Buscar la oferta educativa
+        const educationalOffer = await EducationalOffer.findById(id);
+        
+        if (!educationalOffer) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Oferta educativa no encontrada' 
+            });
+        }
+
+        // Verificar que el usuario autenticado es el publicador de la oferta o un administrador
+        if (educationalOffer.publisher.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'No tienes permiso para actualizar el estado de esta oferta educativa' 
+            });
+        }
+
+        // Actualizar el estado de la oferta educativa
+        educationalOffer.status = status;
+        await educationalOffer.save();
+
+        res.json({ 
+            success: true, 
+            message: 'Estado de la oferta educativa actualizado correctamente',
+            offer: {
+                _id: educationalOffer._id,
+                title: educationalOffer.programName,
+                status: educationalOffer.status
+            }
+        });
+    } catch (error) {
+        console.error('Error al actualizar el estado de la oferta educativa:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Error al actualizar el estado de la oferta educativa' 
         });
     }
 };
