@@ -3,6 +3,7 @@ const Offer = require('../models/Offer');
 const EducationalOffer = require('../models/EducationalOffer');
 const Post = require('../models/Post');
 const BlogPost = require('../models/BlogPost');
+const School = require('../models/School'); // Agregar modelo de escuela
 const cloudinary = require('../config/cloudinary');
 const streamifier = require('streamifier');
 
@@ -489,7 +490,7 @@ exports.deleteEducationalOffer = async (req, res) => {
  */
 exports.getAllPosts = async (req, res) => {
     try {
-        const { status, search, creator, limit = 10, page = 1 } = req.query;
+        const { status, search, userId, limit = 10, page = 1 } = req.query;
         const skip = (page - 1) * limit;
         
         // Construir filtro
@@ -499,15 +500,15 @@ exports.getAllPosts = async (req, res) => {
             filter.status = status;
         }
         
-        if (creator) {
-            filter.creator = creator;
+        if (userId) {
+            filter.user = userId;
         }
         
-        // Buscar por título o contenido
+        // Buscar por título o descripción
         if (search) {
             filter.$or = [
                 { title: { $regex: search, $options: 'i' } },
-                { content: { $regex: search, $options: 'i' } }
+                { description: { $regex: search, $options: 'i' } }
             ];
         }
         
@@ -516,7 +517,7 @@ exports.getAllPosts = async (req, res) => {
             .limit(parseInt(limit))
             .skip(skip)
             .sort({ createdAt: -1 })
-            .populate('creator', 'username fullName profile.profilePicture');
+            .populate('user', 'username fullName profilePicture');
             
         // Obtener conteo total para paginación
         const total = await Post.countDocuments(filter);
@@ -1126,5 +1127,403 @@ exports.updateBlogPostStatus = async (req, res) => {
     } catch (error) {
         console.error('Error al actualizar el estado del post de blog:', error);
         res.status(500).json({ success: false, message: 'Error al actualizar el estado del post de blog' });
+    }
+};
+
+/**
+ * Obtener detalles de un post específico
+ */
+exports.getPostDetails = async (req, res) => {
+    try {
+        const { postId } = req.params;
+        
+        const post = await Post.findById(postId)
+            .populate('user', 'username fullName email profilePicture');
+            
+        if (!post) {
+            return res.status(404).json({ success: false, message: 'Post no encontrado' });
+        }
+        
+        res.json({
+            success: true,
+            post
+        });
+    } catch (error) {
+        console.error('Error al obtener detalles del post:', error);
+        res.status(500).json({ success: false, message: 'Error al obtener los detalles del post' });
+    }
+};
+
+/**
+ * Crear un nuevo post
+ */
+exports.createPost = async (req, res) => {
+    try {
+        const { title, description, tags, peopleTags, userId, staffPick } = req.body;
+        
+        // Verificar que el usuario existe
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+        }
+        
+        // Manejar subida de imágenes
+        const uploadedImages = [];
+        let mainImage = '';
+        
+        if (req.files && req.files.length > 0) {
+            // Subir cada imagen a Cloudinary
+            for (const file of req.files) {
+                try {
+                    // Crear stream de datos para Cloudinary
+                    let streamUpload = (file) => {
+                        return new Promise((resolve, reject) => {
+                            let stream = cloudinary.uploader.upload_stream(
+                                {
+                                    folder: "posts",
+                                    resource_type: "image"
+                                },
+                                (error, result) => {
+                                    if (result) {
+                                        resolve(result);
+                                    } else {
+                                        reject(error);
+                                    }
+                                }
+                            );
+                            streamifier.createReadStream(file.buffer).pipe(stream);
+                        });
+                    };
+                    
+                    const result = await streamUpload(file);
+                    uploadedImages.push(result.secure_url);
+                    
+                    // Primera imagen subida será la principal si no hay una específica
+                    if (!mainImage) {
+                        mainImage = result.secure_url;
+                    }
+                } catch (err) {
+                    console.error('Error al subir imagen:', err);
+                }
+            }
+        }
+        
+        if (uploadedImages.length === 0) {
+            return res.status(400).json({ success: false, message: 'Se requiere al menos una imagen para el post' });
+        }
+        
+        // Crear el post
+        const newPost = new Post({
+            user: userId,
+            title,
+            description,
+            images: uploadedImages,
+            mainImage,
+            tags: tags || [],
+            peopleTags: peopleTags || [],
+            staffPick: staffPick || false
+        });
+        
+        await newPost.save();
+        
+        res.status(201).json({
+            success: true,
+            post: newPost,
+            message: 'Post creado correctamente'
+        });
+    } catch (error) {
+        console.error('Error al crear post:', error);
+        res.status(500).json({ success: false, message: 'Error al crear el post' });
+    }
+};
+
+/**
+ * Actualizar un post existente
+ */
+exports.updatePost = async (req, res) => {
+    try {
+        const { postId } = req.params;
+        const { title, description, tags, peopleTags, staffPick } = req.body;
+        
+        // Verificar que el post existe
+        const post = await Post.findById(postId);
+        if (!post) {
+            return res.status(404).json({ success: false, message: 'Post no encontrado' });
+        }
+        
+        // Preparar objeto de actualización
+        const updates = {
+            title,
+            description,
+            tags: tags || post.tags,
+            peopleTags: peopleTags || post.peopleTags,
+            staffPick: staffPick !== undefined ? staffPick : post.staffPick
+        };
+        
+        // Procesar nuevas imágenes si se proporcionan
+        if (req.files && req.files.length > 0) {
+            const uploadedImages = [];
+            
+            // Subir cada imagen a Cloudinary
+            for (const file of req.files) {
+                try {
+                    // Crear stream de datos para Cloudinary
+                    let streamUpload = (file) => {
+                        return new Promise((resolve, reject) => {
+                            let stream = cloudinary.uploader.upload_stream(
+                                {
+                                    folder: "posts",
+                                    resource_type: "image"
+                                },
+                                (error, result) => {
+                                    if (result) {
+                                        resolve(result);
+                                    } else {
+                                        reject(error);
+                                    }
+                                }
+                            );
+                            streamifier.createReadStream(file.buffer).pipe(stream);
+                        });
+                    };
+                    
+                    const result = await streamUpload(file);
+                    uploadedImages.push(result.secure_url);
+                } catch (err) {
+                    console.error('Error al subir imagen:', err);
+                }
+            }
+            
+            if (uploadedImages.length > 0) {
+                updates.images = [...post.images, ...uploadedImages];
+                // Actualizar mainImage si no había ninguna previamente
+                if (!post.mainImage && uploadedImages.length > 0) {
+                    updates.mainImage = uploadedImages[0];
+                }
+            }
+        }
+        
+        // Si se proporciona una imagen específica como principal
+        if (req.body.mainImage) {
+            // Verificar que la imagen existe en las imágenes del post
+            if (updates.images && updates.images.includes(req.body.mainImage)) {
+                updates.mainImage = req.body.mainImage;
+            } else if (post.images.includes(req.body.mainImage)) {
+                updates.mainImage = req.body.mainImage;
+            }
+        }
+        
+        // Actualizar post
+        const updatedPost = await Post.findByIdAndUpdate(
+            postId,
+            { $set: updates },
+            { new: true }
+        ).populate('user', 'username fullName email profilePicture');
+        
+        res.json({
+            success: true,
+            post: updatedPost,
+            message: 'Post actualizado correctamente'
+        });
+    } catch (error) {
+        console.error('Error al actualizar post:', error);
+        res.status(500).json({ success: false, message: 'Error al actualizar el post' });
+    }
+};
+
+/**
+ * Eliminar un post
+ */
+exports.deletePost = async (req, res) => {
+    try {
+        const { postId } = req.params;
+        
+        // Verificar que el post existe
+        const post = await Post.findById(postId);
+        if (!post) {
+            return res.status(404).json({ success: false, message: 'Post no encontrado' });
+        }
+        
+        // Eliminar post
+        await Post.findByIdAndDelete(postId);
+        
+        res.json({
+            success: true,
+            message: 'Post eliminado correctamente'
+        });
+    } catch (error) {
+        console.error('Error al eliminar post:', error);
+        res.status(500).json({ success: false, message: 'Error al eliminar el post' });
+    }
+};
+
+/**
+ * Actualizar el estado de staff pick de un post
+ */
+exports.updatePostStaffPick = async (req, res) => {
+    try {
+        const { postId } = req.params;
+        const { staffPick } = req.body;
+        
+        // Verificar que el post existe
+        const post = await Post.findById(postId);
+        if (!post) {
+            return res.status(404).json({ success: false, message: 'Post no encontrado' });
+        }
+        
+        // Actualizar staffPick
+        const updatedPost = await Post.findByIdAndUpdate(
+            postId,
+            { staffPick },
+            { new: true }
+        ).populate('user', 'username fullName email profilePicture');
+        
+        res.json({
+            success: true,
+            post: updatedPost,
+            message: `Post ${staffPick ? 'destacado' : 'quitado de destacados'} correctamente`
+        });
+    } catch (error) {
+        console.error('Error al actualizar estado de staff pick:', error);
+        res.status(500).json({ success: false, message: 'Error al actualizar el estado de staff pick' });
+    }
+};
+
+/**
+ * Crear una nueva escuela
+ */
+exports.createSchool = async (req, res) => {
+    try {
+        const { name, type, city } = req.body;
+        
+        // Validar datos obligatorios
+        if (!name) {
+            return res.status(400).json({ success: false, message: 'El nombre de la escuela es obligatorio' });
+        }
+        
+        // Verificar si ya existe una escuela con el mismo nombre
+        const existingSchool = await School.findOne({ name });
+        if (existingSchool) {
+            return res.status(400).json({ success: false, message: 'Ya existe una escuela con este nombre' });
+        }
+        
+        // Crear nueva escuela
+        const newSchool = new School({
+            name,
+            type,
+            city
+        });
+        
+        await newSchool.save();
+        
+        res.status(201).json({
+            success: true,
+            school: newSchool,
+            message: 'Escuela creada correctamente'
+        });
+    } catch (error) {
+        console.error('Error al crear escuela:', error);
+        res.status(500).json({ success: false, message: 'Error al crear la escuela' });
+    }
+};
+
+/**
+ * Obtener detalles de una escuela
+ */
+exports.getSchoolDetails = async (req, res) => {
+    try {
+        const { schoolId } = req.params;
+        
+        const school = await School.findById(schoolId);
+        
+        if (!school) {
+            return res.status(404).json({ success: false, message: 'Escuela no encontrada' });
+        }
+        
+        res.json({
+            success: true,
+            school
+        });
+    } catch (error) {
+        console.error('Error al obtener detalles de escuela:', error);
+        res.status(500).json({ success: false, message: 'Error al obtener los detalles de la escuela' });
+    }
+};
+
+/**
+ * Actualizar una escuela
+ */
+exports.updateSchool = async (req, res) => {
+    try {
+        const { schoolId } = req.params;
+        const { name, type, city } = req.body;
+        
+        // Verificar que la escuela existe
+        const school = await School.findById(schoolId);
+        if (!school) {
+            return res.status(404).json({ success: false, message: 'Escuela no encontrada' });
+        }
+        
+        // Validar nombre obligatorio
+        if (!name) {
+            return res.status(400).json({ success: false, message: 'El nombre de la escuela es obligatorio' });
+        }
+        
+        // Verificar si el nombre ya existe (si está cambiando el nombre)
+        if (name !== school.name) {
+            const existingSchool = await School.findOne({ name });
+            if (existingSchool) {
+                return res.status(400).json({ success: false, message: 'Ya existe una escuela con este nombre' });
+            }
+        }
+        
+        // Actualizar escuela
+        const updatedSchool = await School.findByIdAndUpdate(
+            schoolId,
+            { 
+                name,
+                type,
+                city
+            },
+            { new: true }
+        );
+        
+        res.json({
+            success: true,
+            school: updatedSchool,
+            message: 'Escuela actualizada correctamente'
+        });
+    } catch (error) {
+        console.error('Error al actualizar escuela:', error);
+        res.status(500).json({ success: false, message: 'Error al actualizar la escuela' });
+    }
+};
+
+/**
+ * Eliminar una escuela
+ */
+exports.deleteSchool = async (req, res) => {
+    try {
+        const { schoolId } = req.params;
+        
+        // Verificar que la escuela existe
+        const school = await School.findById(schoolId);
+        if (!school) {
+            return res.status(404).json({ success: false, message: 'Escuela no encontrada' });
+        }
+        
+        // TODO: Verificar si la escuela tiene ofertas educativas asociadas
+        // y decidir si implementar borrado en cascada o prevenir el borrado
+        
+        // Eliminar escuela
+        await School.findByIdAndDelete(schoolId);
+        
+        res.json({
+            success: true,
+            message: 'Escuela eliminada correctamente'
+        });
+    } catch (error) {
+        console.error('Error al eliminar escuela:', error);
+        res.status(500).json({ success: false, message: 'Error al eliminar la escuela' });
     }
 };

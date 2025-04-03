@@ -33,6 +33,11 @@ router.put('/educational-offers/:offerId/status', adminController.updateEducatio
 
 // Gestión de posts
 router.get('/posts', adminController.getAllPosts);
+router.get('/posts/:postId', adminController.getPostDetails);
+router.post('/posts', upload.array('images', 10), adminController.createPost);
+router.put('/posts/:postId', upload.array('images', 10), adminController.updatePost);
+router.delete('/posts/:postId', adminController.deletePost);
+router.put('/posts/:postId/staff-pick', adminController.updatePostStaffPick);
 
 // Gestión de posts de blog
 router.get('/blog', adminController.getAllBlogPosts);
@@ -44,6 +49,10 @@ router.put('/blog/:postId/status', adminController.updateBlogPostStatus);
 
 // Gestión de escuelas/instituciones
 router.get('/schools', adminController.getAllSchools);
+router.get('/schools/:schoolId', adminController.getSchoolDetails);
+router.post('/schools', adminController.createSchool);
+router.put('/schools/:schoolId', adminController.updateSchool);
+router.delete('/schools/:schoolId', adminController.deleteSchool);
 
 // Dashboard
 router.get('/stats', adminController.getDashboardStats);
