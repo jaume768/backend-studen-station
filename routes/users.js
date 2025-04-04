@@ -42,6 +42,9 @@ router.get('/check-follow/:userId', ensureAuthenticated, userController.checkFol
 router.get('/searchUsers', ensureAuthenticated, userController.searchUsers);
 router.get('/creatives', userController.getCreatives);
 
+// Ruta para verificar si un nombre de usuario existe
+router.get('/check-username/:username', ensureAuthenticated, userController.checkUsernameExists);
+
 // Ruta para búsqueda global
 router.get('/search', userController.searchAll);
 

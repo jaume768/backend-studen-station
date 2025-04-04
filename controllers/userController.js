@@ -877,3 +877,24 @@ exports.searchAll = async (req, res) => {
         return res.status(500).json({ message: 'Error interno del servidor' });
     }
 };
+
+// Check if a username exists
+exports.checkUsernameExists = async (req, res) => {
+    try {
+        const { username } = req.params;
+        
+        if (!username) {
+            return res.status(400).json({ message: 'Username is required' });
+        }
+        
+        const user = await User.findOne({ username });
+        
+        return res.status(200).json({
+            exists: !!user,
+            message: user ? 'Username exists' : 'Username does not exist'
+        });
+    } catch (error) {
+        console.error('Error checking username:', error);
+        return res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
