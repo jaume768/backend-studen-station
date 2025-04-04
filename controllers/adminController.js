@@ -1434,7 +1434,7 @@ exports.getSchoolDetails = async (req, res) => {
     try {
         const { schoolId } = req.params;
         
-        const school = await School.findById(schoolId);
+        const school = await User.findById(schoolId.toString());
         
         if (!school) {
             return res.status(404).json({ success: false, message: 'Escuela no encontrada' });
@@ -1459,7 +1459,7 @@ exports.updateSchool = async (req, res) => {
         const { name, type, city } = req.body;
         
         // Verificar que la escuela existe
-        const school = await School.findById(schoolId);
+        const school = await User.findById(schoolId);
         if (!school) {
             return res.status(404).json({ success: false, message: 'Escuela no encontrada' });
         }
@@ -1478,8 +1478,8 @@ exports.updateSchool = async (req, res) => {
         }
         
         // Actualizar escuela
-        const updatedSchool = await School.findByIdAndUpdate(
-            schoolId,
+        const updatedSchool = await User.findByIdAndUpdate(
+            schoolId.toString(),
             { 
                 name,
                 type,
@@ -1507,7 +1507,7 @@ exports.deleteSchool = async (req, res) => {
         const { schoolId } = req.params;
         
         // Verificar que la escuela existe
-        const school = await School.findById(schoolId);
+        const school = await User.findById(schoolId.toString());
         if (!school) {
             return res.status(404).json({ success: false, message: 'Escuela no encontrada' });
         }
@@ -1516,7 +1516,7 @@ exports.deleteSchool = async (req, res) => {
         // y decidir si implementar borrado en cascada o prevenir el borrado
         
         // Eliminar escuela
-        await School.findByIdAndDelete(schoolId);
+        await User.findByIdAndDelete(schoolId);
         
         res.json({
             success: true,
@@ -1525,5 +1525,110 @@ exports.deleteSchool = async (req, res) => {
     } catch (error) {
         console.error('Error al eliminar escuela:', error);
         res.status(500).json({ success: false, message: 'Error al eliminar la escuela' });
+    }
+};
+
+/**
+ * Actualizar la contraseña del administrador actualmente autenticado
+ */
+exports.updateAdminPassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        const adminId = req.user._id;
+
+        // Buscar el admin por ID
+        const admin = await User.findById(adminId);
+        if (!admin) {
+            return res.status(404).json({ success: false, message: 'Administrador no encontrado' });
+        }
+
+        // Verificar que el usuario sea realmente un administrador
+        if (admin.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Solo los administradores pueden realizar esta acción' });
+        }
+
+        // Verificar que la contraseña actual sea correcta
+        const bcrypt = require('bcryptjs');
+        const isMatch = await bcrypt.compare(currentPassword, admin.password);
+        if (!isMatch) {
+            return res.status(400).json({ success: false, message: 'La contraseña actual es incorrecta' });
+        }
+
+        // Hashear la nueva contraseña
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+        // Actualizar la contraseña
+        admin.password = hashedPassword;
+        await admin.save();
+
+        res.json({
+            success: true,
+            message: 'Contraseña actualizada correctamente'
+        });
+    } catch (error) {
+        console.error('Error al actualizar contraseña del administrador:', error);
+        res.status(500).json({ success: false, message: 'Error al actualizar la contraseña' });
+    }
+};
+
+/**
+ * Obtener el perfil del administrador actual
+ */
+exports.getAdminProfile = async (req, res) => {
+    try {
+        const adminId = req.user._id;
+        
+        const admin = await User.findById(adminId)
+            .select('-password');
+            
+        if (!admin) {
+            return res.status(404).json({ success: false, message: 'Administrador no encontrado' });
+        }
+        
+        res.json({
+            success: true,
+            admin
+        });
+    } catch (error) {
+        console.error('Error al obtener perfil del administrador:', error);
+        res.status(500).json({ success: false, message: 'Error al obtener el perfil' });
+    }
+};
+
+/**
+ * Actualizar la información del perfil del administrador actual
+ */
+exports.updateAdminProfile = async (req, res) => {
+    try {
+        const adminId = req.user._id;
+        const { fullName, email } = req.body;
+        
+        // Verificar que el administrador existe
+        const admin = await User.findById(adminId);
+        if (!admin) {
+            return res.status(404).json({ success: false, message: 'Administrador no encontrado' });
+        }
+        
+        // Actualizar información
+        const updatedAdmin = await User.findByIdAndUpdate(
+            adminId,
+            { 
+                $set: { 
+                    fullName: fullName || admin.fullName,
+                    email: email || admin.email
+                } 
+            },
+            { new: true }
+        ).select('-password');
+        
+        res.json({
+            success: true,
+            admin: updatedAdmin,
+            message: 'Perfil actualizado correctamente'
+        });
+    } catch (error) {
+        console.error('Error al actualizar perfil del administrador:', error);
+        res.status(500).json({ success: false, message: 'Error al actualizar el perfil' });
     }
 };

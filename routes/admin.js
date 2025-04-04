@@ -60,4 +60,9 @@ router.get('/stats', adminController.getDashboardStats);
 // Creación de administradores (sólo accesible por otros administradores)
 router.post('/create-admin', adminController.createAdmin);
 
+// Perfil de administrador
+router.get('/profile', adminController.getAdminProfile);
+router.put('/profile', adminController.updateAdminProfile);
+router.put('/change-password', adminController.updateAdminPassword);
+
 module.exports = router;
