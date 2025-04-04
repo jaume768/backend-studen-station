@@ -214,18 +214,18 @@ exports.searchPosts = async (req, res) => {
 exports.getPostsByUsername = async (req, res) => {
     try {
         const { username } = req.params;
+        console.log(username);
 
-        // Primero, obtenemos el ID del usuario basado en su nombre de usuario
         const User = require('../models/User');
         const user = await User.findOne({ username });
+        console.log(user._id.toString());
 
         if (!user) {
             return res.status(404).json({ message: 'Usuario no encontrado' });
         }
 
         // Luego, buscamos todos los posts de ese usuario
-        const posts = await Post.find({ user: user._id }).sort({ createdAt: -1 });
-
+        const posts = await Post.find({ user: user._id.toString() }).sort({ createdAt: -1 });
         res.status(200).json({ posts });
     } catch (error) {
         console.error('Error al obtener posts por nombre de usuario:', error);
