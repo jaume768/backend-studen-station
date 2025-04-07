@@ -912,7 +912,6 @@ exports.getAllBlogPosts = async (req, res) => {
  */
 exports.createBlogPost = async (req, res) => {
     try {
-        // Procesar imagen del post
         let imageUrl = '';
         if (req.file) {
             const streamUpload = (file) => {
@@ -955,7 +954,7 @@ exports.createBlogPost = async (req, res) => {
             size: req.body.size || 'medium-blog',
             tags,
             status: req.body.status || 'published',
-            createdBy: req.user._id
+            createdBy: req.user.id
         });
         
         await newBlogPost.save();
@@ -967,6 +966,17 @@ exports.createBlogPost = async (req, res) => {
         });
     } catch (error) {
         console.error('Error al crear post de blog:', error);
+        // Mensaje más descriptivo para errores de validación
+        if (error.name === 'ValidationError') {
+            const errorMessages = Object.keys(error.errors).map(key => {
+                return `${error.errors[key].path}: ${error.errors[key].message}`;
+            }).join(', ');
+            return res.status(400).json({ 
+                success: false, 
+                message: `Error de validación: ${errorMessages}`, 
+                details: error.errors 
+            });
+        }
         res.status(500).json({ success: false, message: 'Error al crear el post de blog', error: error.message });
     }
 };
