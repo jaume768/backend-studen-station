@@ -19,6 +19,10 @@ const BlogPostSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    additionalImages: {
+        type: [String],
+        default: []
+    },
     category: {
         type: String,
         enum: ['fashion', 'designers', 'industry', 'education', 'events', 'other'],

@@ -4,7 +4,14 @@ const adminController = require('../controllers/adminController');
 const { ensureAuthenticated, ensureAdmin } = require('../middlewares/auth');
 const multer = require('multer');
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+
+// Configuración de Multer sin restricciones de tipo de archivo
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 500 * 1024 * 1024, // Aumentado a 10MB para permitir imágenes más grandes
+  },
+});
 
 // Todas las rutas de administración requieren autenticación y rol de administrador
 router.use(ensureAuthenticated, ensureAdmin);
@@ -42,8 +49,14 @@ router.put('/posts/:postId/staff-pick', adminController.updatePostStaffPick);
 // Gestión de posts de blog
 router.get('/blog', adminController.getAllBlogPosts);
 router.get('/blog/:postId', adminController.getBlogPostDetails);
-router.post('/blog', upload.single('image'), adminController.createBlogPost);
-router.put('/blog/:postId', upload.single('image'), adminController.updateBlogPost);
+router.post('/blog', upload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'images', maxCount: 10 }
+]), adminController.createBlogPost);
+router.put('/blog/:postId', upload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'images', maxCount: 10 }
+]), adminController.updateBlogPost);
 router.delete('/blog/:postId', adminController.deleteBlogPost);
 router.put('/blog/:postId/status', adminController.updateBlogPostStatus);
 

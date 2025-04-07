@@ -12,7 +12,7 @@ const streamifier = require('streamifier');
  */
 exports.getAllUsers = async (req, res) => {
     try {
-        const { role, search, status, limit = 10, page = 1 } = req.query;
+        const { role, search, status, creativeType, professionalType, limit = 10, page = 1 } = req.query;
         const skip = (page - 1) * limit;
         
         // Construir filtro
@@ -29,6 +29,16 @@ exports.getAllUsers = async (req, res) => {
         
         if (role) {
             filter.role = role;
+            
+            // Filtrar por tipo de perfil creativo si se especifica
+            if (role === 'Creativo' && creativeType) {
+                filter.creativeType = parseInt(creativeType);
+            }
+            
+            // Filtrar por tipo de perfil profesional si se especifica
+            if (role === 'Profesional' && professionalType) {
+                filter.professionalType = parseInt(professionalType);
+            }
         }
         
         // Buscar por nombre de usuario, correo o nombre completo
@@ -607,9 +617,59 @@ exports.getAllSchools = async (req, res) => {
  */
 exports.getDashboardStats = async (req, res) => {
     try {
-        // Contar usuarios por rol
+        // Distribución de usuarios por rol y tipo de perfil
         const usersByRole = await User.aggregate([
             { $group: { _id: "$role", count: { $sum: 1 } } }
+        ]);
+        
+        // Distribución detallada de usuarios creativos por tipo
+        const creativesByType = await User.aggregate([
+            { $match: { role: "Creativo" } },
+            { $group: { 
+                _id: "$creativeType", 
+                count: { $sum: 1 } 
+            }},
+            { $project: {
+                _id: 1,
+                count: 1,
+                type: {
+                    $switch: {
+                        branches: [
+                            { case: { $eq: ["$_id", 1] }, then: "Estudiantes" },
+                            { case: { $eq: ["$_id", 2] }, then: "Graduados" },
+                            { case: { $eq: ["$_id", 3] }, then: "Estilistas" },
+                            { case: { $eq: ["$_id", 4] }, then: "Diseñador de marca propia" },
+                            { case: { $eq: ["$_id", 5] }, then: "Otro" }
+                        ],
+                        default: "No especificado"
+                    }
+                }
+            }}
+        ]);
+        
+        // Distribución detallada de usuarios profesionales por tipo
+        const professionalsByType = await User.aggregate([
+            { $match: { role: "Profesional" } },
+            { $group: { 
+                _id: "$professionalType", 
+                count: { $sum: 1 } 
+            }},
+            { $project: {
+                _id: 1,
+                count: 1,
+                type: {
+                    $switch: {
+                        branches: [
+                            { case: { $eq: ["$_id", 1] }, then: "Pequeña marca" },
+                            { case: { $eq: ["$_id", 2] }, then: "Empresa mediana-grande" },
+                            { case: { $eq: ["$_id", 3] }, then: "Agencia" },
+                            { case: { $eq: ["$_id", 4] }, then: "Instituciones" },
+                            { case: { $eq: ["$_id", 5] }, then: "Otra" }
+                        ],
+                        default: "No especificado"
+                    }
+                }
+            }}
         ]);
         
         // Contar usuarios activos vs inactivos
@@ -858,7 +918,15 @@ exports.getDashboardStats = async (req, res) => {
                     activos: usersByStatus.find(item => item._id === true)?.count || 0,
                     inactivos: usersByStatus.find(item => item._id === false)?.count || 0,
                     crecimientoPorMes: userGrowthData,
-                    tasaPerfilesCompletos: profileCompletionRate.toFixed(2)
+                    tasaPerfilesCompletos: profileCompletionRate.toFixed(2),
+                    distribucionCreativos: creativesByType.map(item => ({
+                        tipo: item.type,
+                        count: item.count
+                    })),
+                    distribucionProfesionales: professionalsByType.map(item => ({
+                        tipo: item.type,
+                        count: item.count
+                    }))
                 },
                 ofertas: {
                     total: totalOffers,
@@ -1140,26 +1208,69 @@ exports.getAllBlogPosts = async (req, res) => {
 exports.createBlogPost = async (req, res) => {
     try {
         let imageUrl = '';
-        if (req.file) {
-            const streamUpload = (file) => {
-                return new Promise((resolve, reject) => {
-                    const stream = cloudinary.uploader.upload_stream(
-                        { folder: 'blog_posts' },
-                        (error, result) => {
-                            if (result) resolve(result);
-                            else reject(error);
-                        }
-                    );
-                    streamifier.createReadStream(file.buffer).pipe(stream);
-                });
-            };
-            const result = await streamUpload(req.file);
-            imageUrl = result.secure_url;
-        } else if (req.body.imageUrl) {
-            // Permitir URL de imagen externa
+        let additionalImages = [];
+        
+        // Función para subir imágenes a Cloudinary
+        const streamUpload = (file) => {
+            return new Promise((resolve, reject) => {
+                const stream = cloudinary.uploader.upload_stream(
+                    { folder: 'blog_posts' },
+                    (error, result) => {
+                        if (result) resolve(result);
+                        else reject(error);
+                    }
+                );
+                streamifier.createReadStream(file.buffer).pipe(stream);
+            });
+        };
+        
+        // Procesar imagen principal
+        if (req.files && req.files.image && req.files.image.length > 0) {
+            // Subir imagen principal
+            try {
+                const mainImageResult = await streamUpload(req.files.image[0]);
+                imageUrl = mainImageResult.secure_url;
+            } catch (uploadError) {
+                console.error('Error al subir imagen principal:', uploadError);
+                return res.status(400).json({ success: false, message: 'Error al procesar la imagen principal' });
+            }
+        }
+        
+        // Procesar imágenes adicionales
+        if (req.files && req.files.images && req.files.images.length > 0) {
+            for (let i = 0; i < req.files.images.length; i++) {
+                try {
+                    const additionalResult = await streamUpload(req.files.images[i]);
+                    additionalImages.push(additionalResult.secure_url);
+                } catch (uploadError) {
+                    console.error(`Error al subir imagen adicional ${i+1}:`, uploadError);
+                }
+            }
+        }
+        
+        // Si no hay imagen principal subida, usar URL proporcionada
+        if (!imageUrl && req.body.imageUrl) {
             imageUrl = req.body.imageUrl;
-        } else {
-            return res.status(400).json({ success: false, message: 'Se requiere una imagen para el post' });
+        }
+        
+        // Procesar URLs de imágenes adicionales si existen
+        if (req.body.additionalImageUrls) {
+            try {
+                const parsedUrls = JSON.parse(req.body.additionalImageUrls);
+                if (Array.isArray(parsedUrls)) {
+                    // Si no hay nuevas imágenes adicionales subidas, usar las URLs proporcionadas
+                    if (additionalImages.length === 0) {
+                        additionalImages = parsedUrls;
+                    }
+                }
+            } catch (e) {
+                console.error('Error al procesar additionalImageUrls:', e);
+            }
+        }
+        
+        // Verificar que hay al menos una imagen principal
+        if (!imageUrl) {
+            return res.status(400).json({ success: false, message: 'Se requiere al menos una imagen principal para el post' });
         }
         
         // Procesar etiquetas
@@ -1175,6 +1286,7 @@ exports.createBlogPost = async (req, res) => {
             content: req.body.content,
             excerpt: req.body.excerpt,
             image: imageUrl,
+            additionalImages: additionalImages, // Guardar imágenes adicionales
             category: req.body.category,
             author: req.body.author,
             featured: req.body.featured === 'true',
@@ -1237,34 +1349,76 @@ exports.getBlogPostDetails = async (req, res) => {
  */
 exports.updateBlogPost = async (req, res) => {
     try {
-        const { postId } = req.params;
-        
-        // Verificar que el post existe
-        const blogPost = await BlogPost.findById(postId);
+        // Verificar si el post existe
+        const blogPost = await BlogPost.findById(req.params.postId);
         if (!blogPost) {
-            return res.status(404).json({ success: false, message: 'Post de blog no encontrado' });
+            return res.status(404).json({ success: false, message: 'Post no encontrado' });
         }
         
-        // Procesar imagen si se proporciona una nueva
+        // Procesar imagen principal y adicionales si se proporcionan nuevas
         let imageUrl = blogPost.image; // Mantener la imagen actual por defecto
-        if (req.file) {
-            const streamUpload = (file) => {
-                return new Promise((resolve, reject) => {
-                    const stream = cloudinary.uploader.upload_stream(
-                        { folder: 'blog_posts' },
-                        (error, result) => {
-                            if (result) resolve(result);
-                            else reject(error);
-                        }
-                    );
-                    streamifier.createReadStream(file.buffer).pipe(stream);
-                });
-            };
-            const result = await streamUpload(req.file);
-            imageUrl = result.secure_url;
-        } else if (req.body.imageUrl && req.body.imageUrl !== blogPost.image) {
-            // Actualizar con URL externa si es diferente
+        let additionalImages = blogPost.additionalImages || []; // Mantener las imágenes adicionales actuales
+        
+        // Función para subir imágenes a Cloudinary
+        const streamUpload = (file) => {
+            return new Promise((resolve, reject) => {
+                const stream = cloudinary.uploader.upload_stream(
+                    { folder: 'blog_posts' },
+                    (error, result) => {
+                        if (result) resolve(result);
+                        else reject(error);
+                    }
+                );
+                streamifier.createReadStream(file.buffer).pipe(stream);
+            });
+        };
+        
+        // Procesar imagen principal si se proporciona una nueva
+        if (req.files && req.files.image && req.files.image.length > 0) {
+            // Subir nueva imagen principal
+            try {
+                const mainImageResult = await streamUpload(req.files.image[0]);
+                imageUrl = mainImageResult.secure_url;
+            } catch (uploadError) {
+                console.error('Error al subir nueva imagen principal:', uploadError);
+            }
+        }
+        
+        // Procesar imágenes adicionales nuevas
+        if (req.files && req.files.images && req.files.images.length > 0) {
+            // Si hay nuevas imágenes adicionales, reemplazar las existentes si se solicita
+            if (req.body.replaceAdditionalImages === 'true') {
+                additionalImages = [];
+            }
+            
+            for (let i = 0; i < req.files.images.length; i++) {
+                try {
+                    const additionalResult = await streamUpload(req.files.images[i]);
+                    additionalImages.push(additionalResult.secure_url);
+                } catch (uploadError) {
+                    console.error(`Error al subir nueva imagen adicional ${i+1}:`, uploadError);
+                }
+            }
+        }
+        
+        // Actualizar con URL de imagen externa si se proporciona y es diferente a la actual
+        if (req.body.imageUrl && req.body.imageUrl !== blogPost.image) {
             imageUrl = req.body.imageUrl;
+        }
+        
+        // Procesar imágenes adicionales desde URLs si se proporcionan
+        if (req.body.additionalImageUrls) {
+            try {
+                const newAdditionalUrls = JSON.parse(req.body.additionalImageUrls);
+                if (Array.isArray(newAdditionalUrls)) {
+                    // Si no hay nuevas imágenes adicionales subidas, o si se solicita reemplazar las existentes
+                    if (!(req.files && req.files.some(f => f.fieldname === 'images')) || req.body.replaceAdditionalImages === 'true') {
+                        additionalImages = newAdditionalUrls;
+                    }
+                }
+            } catch (e) {
+                console.error('Error al procesar additionalImageUrls:', e);
+            }
         }
         
         // Procesar etiquetas
@@ -1276,20 +1430,22 @@ exports.updateBlogPost = async (req, res) => {
             
         // Actualizar el post
         const updatedBlogPost = await BlogPost.findByIdAndUpdate(
-            postId,
+            req.params.postId,
             {
-                title: req.body.title || blogPost.title,
-                content: req.body.content || blogPost.content,
-                excerpt: req.body.excerpt || blogPost.excerpt,
+                title: req.body.title,
+                content: req.body.content,
+                excerpt: req.body.excerpt,
                 image: imageUrl,
-                category: req.body.category || blogPost.category,
-                author: req.body.author || blogPost.author,
-                featured: req.body.featured === 'true' || (req.body.featured !== 'false' && blogPost.featured),
+                additionalImages: additionalImages, // Guardar imágenes adicionales
+                category: req.body.category,
+                author: req.body.author,
+                featured: req.body.featured === 'true',
                 size: req.body.size || blogPost.size,
                 tags,
-                status: req.body.status || blogPost.status
+                status: req.body.status || blogPost.status,
+                updatedAt: Date.now()
             },
-            { new: true, runValidators: true }
+            { new: true }
         );
         
         res.json({
