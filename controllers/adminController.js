@@ -647,12 +647,35 @@ exports.getDashboardStats = async (req, res) => {
 
         // 1. ESTADÍSTICAS DE ENGAGEMENT Y ACTIVIDAD
 
-        // Publicaciones más populares (Top 5 posts con más guardados/favoritos)
-        const popularPosts = await User.aggregate([
+        // Publicaciones más populares (Top 5 posts con más guardados/favoritos) - Global
+        const popularPostsGlobal = await User.aggregate([
             { $unwind: "$favorites" },
             { $group: { _id: "$favorites.postId", count: { $sum: 1 } } },
             { $sort: { count: -1 } },
-            { $limit: 5 },
+            { $limit: 6 },
+            { $lookup: {
+                from: "posts",
+                localField: "_id",
+                foreignField: "_id",
+                as: "postDetails"
+            }},
+            { $unwind: "$postDetails" },
+            { $project: {
+                _id: 1,
+                count: 1,
+                title: "$postDetails.title",
+                user: "$postDetails.user",
+                mainImage: "$postDetails.mainImage"
+            }}
+        ]);
+        
+        // Publicaciones más populares del último mes
+        const popularPostsLastMonth = await User.aggregate([
+            { $unwind: "$favorites" },
+            { $match: { "favorites.savedAt": { $gte: lastMonth } } },
+            { $group: { _id: "$favorites.postId", count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 6 },
             { $lookup: {
                 from: "posts",
                 localField: "_id",
@@ -711,7 +734,7 @@ exports.getDashboardStats = async (req, res) => {
         const staffPicksCount = await Post.countDocuments({ staffPick: true });
         const staffPickPercentage = postsCount > 0 ? (staffPicksCount / postsCount) * 100 : 0;
 
-        // Distribución de posts por tipo de usuario
+        // Distribución de posts por tipo de usuario (creativos vs empresas/instituciones)
         const postsByUserType = await Post.aggregate([
             { $lookup: {
                 from: "users",
@@ -720,7 +743,20 @@ exports.getDashboardStats = async (req, res) => {
                 as: "userDetails"
             }},
             { $unwind: "$userDetails" },
-            { $group: { _id: "$userDetails.role", count: { $sum: 1 } } }
+            { $project: {
+                isCompany: { 
+                    $cond: [
+                        { $or: [
+                            { $eq: ["$userDetails.professionalType", 1] }, // Pequeña marca
+                            { $eq: ["$userDetails.professionalType", 2] }, // Empresa mediana-grande
+                            { $eq: ["$userDetails.professionalType", 4] }  // Instituciones
+                        ]},
+                        "Empresa/Institución",
+                        "Creativo"
+                    ]
+                }
+            }},
+            { $group: { _id: "$isCompany", count: { $sum: 1 } } }
         ]);
 
         // Análisis de contenido del blog
@@ -847,7 +883,10 @@ exports.getDashboardStats = async (req, res) => {
                 },
                 posts: {
                     total: postsCount,
-                    masPopulares: popularPosts,
+                    masPopulares: {
+                        global: popularPostsGlobal,
+                        ultimoMes: popularPostsLastMonth
+                    },
                     staffPicks: {
                         total: staffPicksCount,
                         porcentaje: staffPickPercentage.toFixed(2)
