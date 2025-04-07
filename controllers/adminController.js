@@ -642,34 +642,222 @@ exports.getDashboardStats = async (req, res) => {
         const newOffersCount = await Offer.countDocuments({
             publicationDate: { $gte: lastMonth }
         });
+
+        // ---- NUEVAS ESTADÍSTICAS ----
+
+        // 1. ESTADÍSTICAS DE ENGAGEMENT Y ACTIVIDAD
+
+        // Publicaciones más populares (Top 5 posts con más guardados/favoritos)
+        const popularPosts = await User.aggregate([
+            { $unwind: "$favorites" },
+            { $group: { _id: "$favorites.postId", count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 5 },
+            { $lookup: {
+                from: "posts",
+                localField: "_id",
+                foreignField: "_id",
+                as: "postDetails"
+            }},
+            { $unwind: "$postDetails" },
+            { $project: {
+                _id: 1,
+                count: 1,
+                title: "$postDetails.title",
+                user: "$postDetails.user",
+                mainImage: "$postDetails.mainImage"
+            }}
+        ]);
+
+        // Tasa de aplicación a ofertas (% de ofertas con al menos una aplicación)
+        const offersWithApplications = await Offer.countDocuments({
+            "applications.0": { $exists: true }
+        });
+        const totalOffers = await Offer.countDocuments();
+        const applicationRate = totalOffers > 0 ? (offersWithApplications / totalOffers) * 100 : 0;
+
+        // Promedio de aplicaciones por oferta
+        const applicationsStats = await Offer.aggregate([
+            { $project: { applicationCount: { $size: { $ifNull: ["$applications", []] } } } },
+            { $group: { _id: null, total: { $sum: "$applicationCount" }, count: { $sum: 1 } } }
+        ]);
+        const avgApplicationsPerOffer = applicationsStats.length > 0 ? 
+            applicationsStats[0].total / applicationsStats[0].count : 0;
+
+        // Tasa de conversión de ofertas (% de aplicaciones aceptadas)
+        const applicationStatusStats = await Offer.aggregate([
+            { $unwind: "$applications" },
+            { $group: { 
+                _id: "$applications.status", 
+                count: { $sum: 1 } 
+            }}
+        ]);
+        const acceptedApplications = applicationStatusStats.find(item => item._id === 'accepted')?.count || 0;
+        const totalApplications = applicationStatusStats.reduce((sum, item) => sum + item.count, 0);
+        const applicationConversionRate = totalApplications > 0 ? 
+            (acceptedApplications / totalApplications) * 100 : 0;
+
+        // 2. ESTADÍSTICAS DE CONTENIDO
+
+        // Distribución de posts por etiquetas
+        const postTagsDistribution = await Post.aggregate([
+            { $unwind: "$tags" },
+            { $group: { _id: "$tags", count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 10 }
+        ]);
+
+        // Posts destacados (Staff Picks)
+        const staffPicksCount = await Post.countDocuments({ staffPick: true });
+        const staffPickPercentage = postsCount > 0 ? (staffPicksCount / postsCount) * 100 : 0;
+
+        // Distribución de posts por tipo de usuario
+        const postsByUserType = await Post.aggregate([
+            { $lookup: {
+                from: "users",
+                localField: "user",
+                foreignField: "_id",
+                as: "userDetails"
+            }},
+            { $unwind: "$userDetails" },
+            { $group: { _id: "$userDetails.role", count: { $sum: 1 } } }
+        ]);
+
+        // Análisis de contenido del blog
+        const blogPostsByCategory = await BlogPost.aggregate([
+            { $group: { _id: "$category", count: { $sum: 1 } } }
+        ]);
+
+        const blogPostsBySize = await BlogPost.aggregate([
+            { $group: { _id: "$size", count: { $sum: 1 } } }
+        ]);
+
+        // 3. ESTADÍSTICAS DE CRECIMIENTO Y TENDENCIAS
+
+        // Gráfico de crecimiento de usuarios (últimos 12 meses)
+        const twelveMonthsAgo = new Date();
+        twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+
+        const userGrowthByMonth = await User.aggregate([
+            { $match: { createdAt: { $gte: twelveMonthsAgo } } },
+            { $project: {
+                month: { $month: "$createdAt" },
+                year: { $year: "$createdAt" }
+            }},
+            { $group: {
+                _id: { month: "$month", year: "$year" },
+                count: { $sum: 1 }
+            }},
+            { $sort: { "_id.year": 1, "_id.month": 1 } }
+        ]);
+
+        // Formatear los datos para el gráfico
+        const monthNames = [
+            "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+        ];
+        const userGrowthData = userGrowthByMonth.map(item => ({
+            periodo: `${monthNames[item._id.month - 1]} ${item._id.year}`,
+            usuarios: item.count
+        }));
+
+        // Tasa de completado de perfiles
+        const completedProfilesCount = await User.countDocuments({ profileCompleted: true });
+        const totalUsers = await User.countDocuments();
+        const profileCompletionRate = totalUsers > 0 ? (completedProfilesCount / totalUsers) * 100 : 0;
         
+        // 4. ESTADÍSTICAS DE OFERTAS EDUCATIVAS
+        
+        // Distribución por tipo de educación
+        const educationTypeDistribution = await EducationalOffer.aggregate([
+            { $group: { _id: "$educationType", count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+        ]);
+        
+        // Distribución por modalidad
+        const modalityDistribution = await EducationalOffer.aggregate([
+            { $group: { _id: "$modality", count: { $sum: 1 } } }
+        ]);
+        
+        // Distribución geográfica (top 10 ciudades)
+        const geographicDistribution = await EducationalOffer.aggregate([
+            { $group: { 
+                _id: { 
+                    city: "$location.city", 
+                    country: "$location.country" 
+                }, 
+                count: { $sum: 1 } 
+            }},
+            { $sort: { count: -1 } },
+            { $limit: 10 },
+            { $project: {
+                _id: 0,
+                location: { $concat: ["$_id.city", ", ", "$_id.country"] },
+                count: 1
+            }}
+        ]);
+        
+        // Características adicionales
+        const additionalFeaturesStats = {
+            internships: await EducationalOffer.countDocuments({ internships: true }),
+            erasmus: await EducationalOffer.countDocuments({ erasmus: true }),
+            bilingualEducation: await EducationalOffer.countDocuments({ bilingualEducation: true }),
+            morningSchedule: await EducationalOffer.countDocuments({ morningSchedule: true })
+        };
+        
+        // Nuevas ofertas educativas en el último mes
+        const newEducationalOffersCount = await EducationalOffer.countDocuments({
+            publicationDate: { $gte: lastMonth }
+        });
+
         res.json({
             success: true,
             stats: {
                 usuarios: {
-                    total: await User.countDocuments(),
+                    total: totalUsers,
                     nuevos30Dias: newUsersCount,
                     creativos: usersByRole.find(item => item._id === 'Creativo')?.count || 0,
                     profesionales: usersByRole.find(item => item._id === 'Profesional')?.count || 0,
                     admin: usersByRole.find(item => item._id === 'Admin')?.count || 0,
                     activos: usersByStatus.find(item => item._id === true)?.count || 0,
-                    inactivos: usersByStatus.find(item => item._id === false)?.count || 0
+                    inactivos: usersByStatus.find(item => item._id === false)?.count || 0,
+                    crecimientoPorMes: userGrowthData,
+                    tasaPerfilesCompletos: profileCompletionRate.toFixed(2)
                 },
                 ofertas: {
-                    total: await Offer.countDocuments(),
+                    total: totalOffers,
                     nuevas30Dias: newOffersCount,
                     activas: offersByStatus.find(item => item._id === 'accepted')?.count || 0,
                     pendientes: offersByStatus.find(item => item._id === 'pending')?.count || 0,
-                    canceladas: offersByStatus.find(item => item._id === 'cancelled')?.count || 0
+                    canceladas: offersByStatus.find(item => item._id === 'cancelled')?.count || 0,
+                    tasaAplicacion: applicationRate.toFixed(2),
+                    promedioAplicaciones: avgApplicationsPerOffer.toFixed(2),
+                    tasaConversion: applicationConversionRate.toFixed(2)
                 },
                 ofertasEducativas: {
                     total: await EducationalOffer.countDocuments(),
                     activas: educationalOffersByStatus.find(item => item._id === 'accepted')?.count || 0,
                     pendientes: educationalOffersByStatus.find(item => item._id === 'pending')?.count || 0,
-                    rechazadas: educationalOffersByStatus.find(item => item._id === 'rejected')?.count || 0
+                    rechazadas: educationalOffersByStatus.find(item => item._id === 'rejected')?.count || 0,
+                    nuevas30Dias: newEducationalOffersCount,
+                    distribucionPorTipo: educationTypeDistribution,
+                    distribucionPorModalidad: modalityDistribution,
+                    distribucionGeografica: geographicDistribution,
+                    caracteristicas: additionalFeaturesStats
                 },
                 posts: {
-                    total: postsCount
+                    total: postsCount,
+                    masPopulares: popularPosts,
+                    staffPicks: {
+                        total: staffPicksCount,
+                        porcentaje: staffPickPercentage.toFixed(2)
+                    },
+                    distribucionEtiquetas: postTagsDistribution,
+                    distribucionPorUsuario: postsByUserType
+                },
+                blog: {
+                    distribucionPorCategoria: blogPostsByCategory,
+                    distribucionPorTamaño: blogPostsBySize
                 }
             }
         });
