@@ -78,4 +78,11 @@ router.get('/profile', adminController.getAdminProfile);
 router.put('/profile', adminController.updateAdminProfile);
 router.put('/change-password', adminController.updateAdminPassword);
 
+// Gestión de revistas
+router.get('/magazines', adminController.getAllMagazines);
+router.get('/magazines/:magazineId', adminController.getMagazineDetails);
+router.post('/magazines', upload.single('image'), adminController.createMagazine);
+router.put('/magazines/:magazineId', upload.single('image'), adminController.updateMagazine);
+router.delete('/magazines/:magazineId', adminController.deleteMagazine);
+
 module.exports = router;

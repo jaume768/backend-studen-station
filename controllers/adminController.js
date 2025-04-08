@@ -4,6 +4,7 @@ const EducationalOffer = require('../models/EducationalOffer');
 const Post = require('../models/Post');
 const BlogPost = require('../models/BlogPost');
 const School = require('../models/School'); // Agregar modelo de escuela
+const Magazine = require('../models/Magazine'); // Agregar modelo de revista
 const cloudinary = require('../config/cloudinary');
 const streamifier = require('streamifier');
 
@@ -2023,5 +2024,246 @@ exports.updateAdminProfile = async (req, res) => {
     } catch (error) {
         console.error('Error al actualizar perfil del administrador:', error);
         res.status(500).json({ success: false, message: 'Error al actualizar el perfil' });
+    }
+};
+
+/**
+ * Obtener todas las revistas con filtros
+ */
+exports.getAllMagazines = async (req, res) => {
+    try {
+        const { search, status, limit = 10, page = 1 } = req.query;
+        const skip = (page - 1) * limit;
+        
+        // Construir filtro
+        const filter = {};
+        
+        // Por defecto, mostrar revistas activas a menos que se solicite específicamente inactivas
+        if (status === 'inactive') {
+            filter.isActive = false;
+        } else if (status === 'all') {
+            // No filtrar por isActive si se quieren ver todos
+        } else {
+            filter.isActive = true; // Por defecto, mostrar solo activos
+        }
+        
+        // Buscar por nombre
+        if (search) {
+            filter.name = { $regex: search, $options: 'i' };
+        }
+        
+        // Obtener resultados paginados
+        const magazines = await Magazine.find(filter)
+            .limit(parseInt(limit))
+            .skip(skip)
+            .sort({ createdAt: -1 });
+            
+        // Obtener conteo total para paginación
+        const total = await Magazine.countDocuments(filter);
+        
+        res.json({
+            success: true,
+            magazines,
+            pagination: {
+                total,
+                page: parseInt(page),
+                pages: Math.ceil(total / limit)
+            }
+        });
+    } catch (error) {
+        console.error('Error al obtener revistas:', error);
+        res.status(500).json({ success: false, message: 'Error al obtener las revistas' });
+    }
+};
+
+/**
+ * Obtener detalles de una revista específica
+ */
+exports.getMagazineDetails = async (req, res) => {
+    try {
+        const { magazineId } = req.params;
+        
+        const magazine = await Magazine.findById(magazineId);
+            
+        if (!magazine) {
+            return res.status(404).json({ success: false, message: 'Revista no encontrada' });
+        }
+        
+        res.json({
+            success: true,
+            magazine
+        });
+    } catch (error) {
+        console.error('Error al obtener detalles de la revista:', error);
+        res.status(500).json({ success: false, message: 'Error al obtener los detalles de la revista' });
+    }
+};
+
+/**
+ * Crear una nueva revista
+ */
+exports.createMagazine = async (req, res) => {
+    try {
+        let imageUrl = '';
+        
+        // Función para subir imagen a Cloudinary
+        const streamUpload = (file) => {
+            return new Promise((resolve, reject) => {
+                const stream = cloudinary.uploader.upload_stream(
+                    { folder: 'magazines' },
+                    (error, result) => {
+                        if (result) resolve(result);
+                        else reject(error);
+                    }
+                );
+                streamifier.createReadStream(file.buffer).pipe(stream);
+            });
+        };
+        
+        // Procesar imagen
+        if (req.file) {
+            try {
+                const imageResult = await streamUpload(req.file);
+                imageUrl = imageResult.secure_url;
+            } catch (uploadError) {
+                console.error('Error al subir imagen:', uploadError);
+                return res.status(400).json({ success: false, message: 'Error al procesar la imagen' });
+            }
+        }
+        
+        // Si no hay imagen subida, usar URL proporcionada
+        if (!imageUrl && req.body.imageUrl) {
+            imageUrl = req.body.imageUrl;
+        }
+        
+        // Verificar que hay imagen
+        if (!imageUrl) {
+            return res.status(400).json({ success: false, message: 'Se requiere una imagen para la revista' });
+        }
+        
+        // Crear la nueva revista
+        const newMagazine = new Magazine({
+            name: req.body.name,
+            image: imageUrl,
+            price: parseFloat(req.body.price),
+            isActive: req.body.isActive === 'true',
+            createdBy: req.user.id
+        });
+        
+        await newMagazine.save();
+        
+        res.status(201).json({
+            success: true,
+            message: 'Revista creada exitosamente',
+            magazine: newMagazine
+        });
+    } catch (error) {
+        console.error('Error al crear revista:', error);
+        // Mensaje más descriptivo para errores de validación
+        if (error.name === 'ValidationError') {
+            const errorMessages = Object.keys(error.errors).map(key => {
+                return `${error.errors[key].path}: ${error.errors[key].message}`;
+            }).join(', ');
+            return res.status(400).json({ 
+                success: false, 
+                message: `Error de validación: ${errorMessages}`, 
+                details: error.errors 
+            });
+        }
+        res.status(500).json({ success: false, message: 'Error al crear la revista', error: error.message });
+    }
+};
+
+/**
+ * Actualizar una revista existente
+ */
+exports.updateMagazine = async (req, res) => {
+    try {
+        const { magazineId } = req.params;
+        
+        // Verificar que la revista existe
+        const magazine = await Magazine.findById(magazineId);
+        if (!magazine) {
+            return res.status(404).json({ success: false, message: 'Revista no encontrada' });
+        }
+        
+        let imageUrl = magazine.image; // Mantener la imagen actual por defecto
+        
+        // Función para subir imagen a Cloudinary
+        const streamUpload = (file) => {
+            return new Promise((resolve, reject) => {
+                const stream = cloudinary.uploader.upload_stream(
+                    { folder: 'magazines' },
+                    (error, result) => {
+                        if (result) resolve(result);
+                        else reject(error);
+                    }
+                );
+                streamifier.createReadStream(file.buffer).pipe(stream);
+            });
+        };
+        
+        // Procesar nueva imagen si se proporciona
+        if (req.file) {
+            try {
+                const imageResult = await streamUpload(req.file);
+                imageUrl = imageResult.secure_url;
+            } catch (uploadError) {
+                console.error('Error al subir imagen:', uploadError);
+                return res.status(400).json({ success: false, message: 'Error al procesar la imagen' });
+            }
+        }
+        
+        // Si se proporciona una URL de imagen, usarla
+        if (req.body.imageUrl) {
+            imageUrl = req.body.imageUrl;
+        }
+        
+        // Actualizar la revista
+        const updatedMagazine = await Magazine.findByIdAndUpdate(
+            magazineId,
+            {
+                name: req.body.name,
+                image: imageUrl,
+                price: parseFloat(req.body.price),
+                isActive: req.body.isActive === 'true'
+            },
+            { new: true }
+        );
+        
+        res.json({
+            success: true,
+            message: 'Revista actualizada correctamente',
+            magazine: updatedMagazine
+        });
+    } catch (error) {
+        console.error('Error al actualizar revista:', error);
+        res.status(500).json({ success: false, message: 'Error al actualizar la revista' });
+    }
+};
+
+/**
+ * Eliminar una revista
+ */
+exports.deleteMagazine = async (req, res) => {
+    try {
+        const { magazineId } = req.params;
+        
+        // Verificar que la revista existe
+        const magazine = await Magazine.findById(magazineId);
+        if (!magazine) {
+            return res.status(404).json({ success: false, message: 'Revista no encontrada' });
+        }
+        
+        // Eliminar la revista
+        await Magazine.findByIdAndRemove(magazineId);
+        
+        res.json({
+            success: true,
+            message: 'Revista eliminada correctamente'
+        });
+    } catch (error) {
+        console.error('Error al eliminar revista:', error);
+        res.status(500).json({ success: false, message: 'Error al eliminar la revista' });
     }
 };
