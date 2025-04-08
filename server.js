@@ -36,6 +36,7 @@ app.use('/api/posts', require('./routes/posts'));
 app.use('/api/offers', require('./routes/offers'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/magazines', require('./routes/magazines'));
+app.use('/api/blog', require('./routes/blog'));
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
