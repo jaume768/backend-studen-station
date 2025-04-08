@@ -17,7 +17,7 @@ const generateVerificationCode = () => {
 
 const sendResetEmail = (email, resetCode) => {
     const tranEmailApi = new SibApiV3Sdk.TransactionalEmailsApi();
-    const sender = { email: "tu-email@dominio.com", name: "Study" };
+    const sender = { email: "jaumefernandezsunyer12@gmail.com", name: "Study" };
     const receivers = [{ email }];
     tranEmailApi.sendTransacEmail({
         sender,

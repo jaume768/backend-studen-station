@@ -1045,7 +1045,7 @@ exports.updateOfferStatus = async (req, res) => {
         }
 
         // Buscar la oferta por ID
-        const offer = await Offer.findById(offerId);
+        const offer = await Offer.findById(offerId).populate('publisher');
         if (!offer) {
             return res.status(404).json({
                 success: false,
@@ -1053,9 +1053,38 @@ exports.updateOfferStatus = async (req, res) => {
             });
         }
 
+        const user = await User.findById(offer.publisher);
+
+        // Guardar el estado anterior para verificar si ha cambiado
+        const previousStatus = offer.status;
+
         // Actualizar el estado
         offer.status = status;
         await offer.save();
+
+        // Enviar notificación por email si el estado ha cambiado a accepted o cancelled
+        if (previousStatus !== status && (status === 'accepted' || status === 'cancelled')) {
+            try {
+                // Importar el servicio de notificaciones por email
+                const { sendJobOfferStatusNotification } = require('../utils/emailNotifications');
+                
+                // Determinar el nombre del usuario (puede ser nombre completo o nombre de empresa)
+                const userName = user.username || user.companyName || 'Usuario';
+                
+                // Enviar la notificación
+                await sendJobOfferStatusNotification(
+                    user.email,
+                    userName,
+                    offer,
+                    status
+                );
+                
+                console.log(`Notificación enviada a ${user.email} sobre cambio de estado de oferta a ${status}`);
+            } catch (emailError) {
+                console.error('Error al enviar notificación por email:', emailError);
+                // No interrumpimos el flujo principal si falla el envío de email
+            }
+        }
 
         res.json({
             success: true,
@@ -1095,7 +1124,7 @@ exports.updateEducationalOfferStatus = async (req, res) => {
         }
 
         // Buscar la oferta educativa por ID
-        const offer = await EducationalOffer.findById(offerId);
+        const offer = await EducationalOffer.findById(offerId).populate('publisher');
         if (!offer) {
             return res.status(404).json({
                 success: false,
@@ -1103,9 +1132,36 @@ exports.updateEducationalOfferStatus = async (req, res) => {
             });
         }
 
+        // Guardar el estado anterior para verificar si ha cambiado
+        const previousStatus = offer.status;
+
         // Actualizar el estado
         offer.status = status;
         await offer.save();
+
+        // Enviar notificación por email si el estado ha cambiado a accepted o rejected
+        if (previousStatus !== status && (status === 'accepted' || status === 'rejected') && offer.publisher && offer.publisher.email) {
+            try {
+                // Importar el servicio de notificaciones por email
+                const { sendEducationalOfferStatusNotification } = require('../utils/emailNotifications');
+                
+                // Determinar el nombre del usuario (puede ser nombre completo o nombre de empresa/institución)
+                const userName = offer.publisher.companyName || offer.publisher.username || offer.institutionName || 'Usuario';
+                
+                // Enviar la notificación
+                await sendEducationalOfferStatusNotification(
+                    offer.publisher.email,
+                    userName,
+                    offer,
+                    status
+                );
+                
+                console.log(`Notificación enviada a ${offer.publisher.email} sobre cambio de estado de oferta educativa a ${status}`);
+            } catch (emailError) {
+                console.error('Error al enviar notificación por email:', emailError);
+                // No interrumpimos el flujo principal si falla el envío de email
+            }
+        }
 
         res.json({
             success: true,
