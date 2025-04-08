@@ -2146,6 +2146,7 @@ exports.createMagazine = async (req, res) => {
             name: req.body.name,
             image: imageUrl,
             price: parseFloat(req.body.price),
+            link: req.body.link,
             isActive: req.body.isActive === 'true',
             createdBy: req.user.id
         });
@@ -2226,6 +2227,7 @@ exports.updateMagazine = async (req, res) => {
                 name: req.body.name,
                 image: imageUrl,
                 price: parseFloat(req.body.price),
+                link: req.body.link,
                 isActive: req.body.isActive === 'true'
             },
             { new: true }

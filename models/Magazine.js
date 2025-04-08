@@ -15,6 +15,10 @@ const magazineSchema = new mongoose.Schema({
         required: [true, 'El precio de la revista es obligatorio'],
         min: [0, 'El precio no puede ser negativo']
     },
+    link: {
+        type: String,
+        trim: true
+    },
     isActive: {
         type: Boolean,
         default: true

@@ -8,7 +8,7 @@ exports.getActiveMagazines = async (req, res) => {
         // Solo recuperamos las revistas activas
         const magazines = await Magazine.find({ isActive: true })
             .sort({ createdAt: -1 }) // Ordenadas por fecha de creación (más recientes primero)
-            .select('name image price createdAt'); // Seleccionamos solo los campos necesarios
+            .select('name image price link createdAt'); // Seleccionamos solo los campos necesarios
         
         res.status(200).json({
             success: true,
