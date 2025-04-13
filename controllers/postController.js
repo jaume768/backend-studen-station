@@ -76,6 +76,42 @@ exports.getRandomPosts = async (req, res) => {
     }
 };
 
+// Obtener posts aleatorios excluyendo un post específico
+exports.getRandomPostsExcluding = async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 20;
+        const excludeId = req.query.exclude;
+        
+        let query = {};
+        
+        // Si hay un ID para excluir, lo añadimos a la consulta
+        if (excludeId) {
+            // Verificamos si el ID es válido para evitar errores
+            if (!mongoose.Types.ObjectId.isValid(excludeId)) {
+                return res.status(400).json({ error: 'ID de post inválido' });
+            }
+            query._id = { $ne: new mongoose.Types.ObjectId(excludeId) };
+        }
+        
+        // Obtenemos posts aleatorios excluyendo el post especificado
+        const posts = await Post.aggregate([
+            { $match: query },
+            { $sample: { size: limit } }
+        ]);
+        
+        // Hacemos un populate manual para incluir información del usuario
+        const postsWithUser = await Post.populate(posts, { 
+            path: 'user', 
+            select: 'username fullName profileImage' 
+        });
+        
+        res.status(200).json({ posts: postsWithUser });
+    } catch (error) {
+        console.error('Error al obtener posts aleatorios:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
 exports.getPostsByTag = async (req, res) => {
     const { tag } = req.params;
     const limit = parseInt(req.query.limit) || 20;

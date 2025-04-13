@@ -17,6 +17,9 @@ router.get('/user/:username', postController.getPostsByUsername);
 // Obtener posts aleatorios
 router.get('/home', postController.getRandomPosts);
 
+// Obtener posts aleatorios excluyendo un post específico
+router.get('/random', postController.getRandomPostsExcluding);
+
 // Obtener posts para el explorador (sin autenticación)
 router.get('/explorer', postController.getExplorerPosts);
 
