@@ -799,39 +799,63 @@ exports.getUserEducationalOffers = async (req, res) => {
 
 exports.searchAll = async (req, res) => {
     try {
-        const { query } = req.query;
+        const { query, searchByFullName, searchByUsername, includePosts, includeUserPosts } = req.query;
+        
         if (!query || query.length < 2) {
             return res.status(400).json({ message: 'La búsqueda debe tener al menos 2 caracteres' });
         }
 
         const regex = new RegExp(query, 'i');
+        
+        // Configurar condiciones de búsqueda para usuarios según parámetros
+        let userSearchCriteria = [];
+        
+        // Siempre incluir estos campos en la búsqueda
+        userSearchCriteria.push({ companyName: regex });
+        userSearchCriteria.push({ professionalTitle: regex });
+        userSearchCriteria.push({ biography: regex });
+        
+        // Incluir búsqueda por nombre completo si se solicita
+        if (searchByFullName !== 'false') {
+            userSearchCriteria.push({ fullName: regex });
+        }
+        
+        // Incluir búsqueda por username si se solicita
+        if (searchByUsername !== 'false') {
+            userSearchCriteria.push({ username: regex });
+        }
 
         // Búsqueda de usuarios
         const users = await User.find({
-            $or: [
-                { username: regex },
-                { fullName: regex },
-                { companyName: regex },
-                { professionalTitle: regex },
-                { biography: regex }
-            ],
+            $or: userSearchCriteria,
             isActive: true
         })
-        .select('username fullName professionalTitle companyName role profile.profilePicture')
+        .select('username fullName professionalTitle companyName role professionalType profile.profilePicture')
         .limit(10);
+        
+        // Obtener IDs de usuarios encontrados para buscar sus publicaciones
+        const userIds = users.map(user => user._id);
+
+        // Búsqueda de posts por contenido
+        let postQueries = [
+            { title: regex },
+            { description: regex },
+            { tags: regex }
+        ];
+        
+        // Si se solicita incluir posts de usuarios encontrados
+        if (includeUserPosts === 'true' && userIds.length > 0) {
+            postQueries.push({ user: { $in: userIds } });
+        }
 
         // Búsqueda de posts
         const posts = await Post.find({
-            $or: [
-                { title: regex },
-                { description: regex },
-                { tags: regex }
-            ]
+            $or: postQueries
         })
-        .populate('user', 'username profile.profilePicture')
+        .populate('user', 'username fullName companyName profile.profilePicture')
         .select('title description mainImage createdAt')
         .sort({ createdAt: -1 })
-        .limit(10);
+        .limit(20); // Aumentamos el límite para mostrar más posts
 
         // Búsqueda de ofertas de trabajo
         const offers = await Offer.find({
