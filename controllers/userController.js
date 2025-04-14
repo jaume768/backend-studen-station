@@ -475,7 +475,7 @@ exports.getFollowing = async (req, res) => {
             .select('following')
             .populate({
                 path: 'following',
-                select: 'username fullName professionalTitle city country profile role',
+                select: 'username fullName companyName professionalType professionalTitle city country profile role',
                 options: {
                     limit: limit,
                     skip: skip
@@ -511,7 +511,7 @@ exports.getFollowers = async (req, res) => {
             .select('followers')
             .populate({
                 path: 'followers',
-                select: 'username fullName professionalTitle city country profile role',
+                select: 'username fullName companyName professionalType professionalTitle city country profile role',
                 options: {
                     limit: limit,
                     skip: skip

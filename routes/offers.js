@@ -41,6 +41,9 @@ router.put('/:id/status', ensureAuthenticated, offerController.updateOfferStatus
 // Actualizar estado de una oferta educativa
 router.put('/educational/:id/status', ensureAuthenticated, offerController.updateEducationalOfferStatus);
 
+// Actualizar estado de una aplicación a una oferta
+router.put('/:id/applications/:applicationId/status', ensureAuthenticated, offerController.updateApplicationStatus);
+
 // Obtener oferta por ID
 router.get('/:id', offerController.getOffer);
 
