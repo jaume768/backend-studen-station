@@ -81,9 +81,9 @@ exports.getRandomPostsExcluding = async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 20;
         const excludeId = req.query.exclude;
-        
+
         let query = {};
-        
+
         // Si hay un ID para excluir, lo añadimos a la consulta
         if (excludeId) {
             // Verificamos si el ID es válido para evitar errores
@@ -92,19 +92,19 @@ exports.getRandomPostsExcluding = async (req, res) => {
             }
             query._id = { $ne: new mongoose.Types.ObjectId(excludeId) };
         }
-        
+
         // Obtenemos posts aleatorios excluyendo el post especificado
         const posts = await Post.aggregate([
             { $match: query },
             { $sample: { size: limit } }
         ]);
-        
+
         // Hacemos un populate manual para incluir información del usuario
-        const postsWithUser = await Post.populate(posts, { 
-            path: 'user', 
-            select: 'username fullName profileImage' 
+        const postsWithUser = await Post.populate(posts, {
+            path: 'user',
+            select: 'username fullName profileImage'
         });
-        
+
         res.status(200).json({ posts: postsWithUser });
     } catch (error) {
         console.error('Error al obtener posts aleatorios:', error);
@@ -180,11 +180,61 @@ exports.deletePost = async (req, res) => {
     }
 };
 
+
 exports.getStaffPicks = async (req, res) => {
     try {
-        const posts = await Post.find({ staffPick: true }).populate('user');
-        res.status(200).json({ posts });
+        const limit = parseInt(req.query.limit) || 20;
+
+        // Omitimos el manejo del parámetro "exclude" para que siempre se incluyan todos los posts
+        let posts = await Post.aggregate([
+            {
+                $match: {
+                    staffPick: true,
+                    images: { $exists: true, $ne: [] }
+                }
+            },
+            { $sample: { size: limit } }
+        ]);
+
+        posts = await Post.populate(posts, {
+            path: 'user',
+            select: 'username profile city country'
+        });
+
+        let postImages = [];
+        posts.forEach(post => {
+            if (Array.isArray(post.images)) {
+                post.images.forEach(imageUrl => {
+                    postImages.push({
+                        imageUrl,
+                        postId: post._id,
+                        postTitle: post.title,
+                        user: {
+                            username: post.user?.username || '',
+                            profilePicture: post.user?.profile?.profilePicture || null,
+                            city: post.user?.city || null,
+                            country: post.user?.country || null
+                        },
+                        peopleTags: post.peopleTags || []
+                    });
+                });
+            }
+        });
+
+        // Obtener el total de posts sin excluir ninguno
+        const totalPosts = await Post.countDocuments({
+            staffPick: true,
+            images: { $exists: true, $ne: [] }
+        });
+        const hasMore = totalPosts > posts.length;
+
+        res.status(200).json({
+            images: postImages,
+            hasMore,
+            totalPosts
+        });
     } catch (error) {
+        console.error("Error al obtener Staff Picks:", error);
         res.status(500).json({ error: error.message });
     }
 };
@@ -286,9 +336,9 @@ exports.getExplorerPosts = async (req, res) => {
         let posts = await Post.aggregate([
             {
                 $match: {
-                    images: { 
-                        $exists: true, 
-                        $ne: [] 
+                    images: {
+                        $exists: true,
+                        $ne: []
                     },
                     ...(viewedPostIds.length > 0 && { _id: { $nin: viewedPostIds } })
                 }
