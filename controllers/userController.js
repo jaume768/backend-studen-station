@@ -575,7 +575,21 @@ exports.searchUsers = async (req, res) => {
 // Obtener usuarios creativos (con su último post)
 exports.getCreatives = async (req, res) => {
     try {
-        const { page = 1, limit = 9, country, category } = req.query;
+        const { 
+            page = 1, 
+            limit = 9, 
+            country, 
+            category,
+            search,
+            city,
+            school,
+            skills,
+            graduationYear,
+            professionalProfile,
+            software,
+            availability,
+            internships
+        } = req.query;
         const pageNumber = parseInt(page);
         const limitNumber = parseInt(limit);
         const skip = (pageNumber - 1) * limitNumber;
@@ -587,8 +601,64 @@ exports.getCreatives = async (req, res) => {
         };
         
         // Aplicar filtros adicionales si se proporcionan
+        if (search) {
+            // Búsqueda por texto en varios campos
+            filter.$or = [
+                { username: { $regex: search, $options: 'i' } },
+                { fullName: { $regex: search, $options: 'i' } },
+                { professionalTitle: { $regex: search, $options: 'i' } },
+                { biography: { $regex: search, $options: 'i' } }
+            ];
+        }
+        
         if (country) {
-            filter.country = country;
+            filter.country = { $regex: country, $options: 'i' };
+        }
+        
+        if (city) {
+            filter.city = { $regex: city, $options: 'i' };
+        }
+        
+        if (school) {
+            filter.$or = [
+                { 'education.institution': { $regex: school, $options: 'i' } },
+                { institution: { $regex: school, $options: 'i' } }
+            ];
+        }
+        
+        if (skills) {
+            filter.skills = { $in: [new RegExp(skills, 'i')] };
+        }
+        
+        if (graduationYear) {
+            // Buscar en educación donde el año de finalización coincida
+            filter['education.formationEnd'] = { 
+                $gte: new Date(`${graduationYear}-01-01`), 
+                $lte: new Date(`${graduationYear}-12-31`) 
+            };
+        }
+        
+        if (professionalProfile) {
+            filter.professionalTitle = { $regex: professionalProfile, $options: 'i' };
+        }
+        
+        if (software) {
+            filter.software = { $in: [new RegExp(software, 'i')] };
+        }
+        
+        if (availability) {
+            // Mapear disponibilidad a los campos de contrato
+            if (availability === 'Inmediata') {
+                // Lógica para disponibilidad inmediata
+            } else if (availability === '1 mes') {
+                // Lógica para disponibilidad en 1 mes
+            } else if (availability === '3 meses') {
+                // Lógica para disponibilidad en 3 meses
+            }
+        }
+        
+        if (internships === 'true') {
+            filter['contract.practicas'] = true;
         }
         
         // Buscar usuarios
