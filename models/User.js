@@ -123,6 +123,7 @@ const UserSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
     isVerified: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
+    isVerificatedProfesional: { type: Boolean, default: false },
     savedOffers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Offer' }],
     appliedOffers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Offer' }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
