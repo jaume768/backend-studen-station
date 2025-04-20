@@ -9,7 +9,16 @@ const OfferSchema = new mongoose.Schema({
     position: { type: String, required: true },
     publicationDate: { type: Date, default: Date.now },
     city: { type: String, required: true },
-    
+
+    website: {
+        type: String,
+        trim: true
+    },
+    contactName: {
+        type: String,
+        trim: true
+    },
+
     // Tipo de trabajo y modalidad
     jobType: { type: String, enum: ['Prácticas', 'Tiempo completo', 'Tiempo parcial'], required: true },
     locationType: { type: String, enum: ['Presencial', 'Remoto', 'Híbrido'], required: true },
@@ -26,6 +35,12 @@ const OfferSchema = new mongoose.Schema({
     // Etiquetas para filtrar
     tags: [{ type: String }],
 
+    descriptionEmployer: {
+        type: String,
+        required: true,
+        trim: true
+    },
+
     // Preguntas extra para los candidatos
     extraQuestions: [{
         question: {
@@ -41,23 +56,23 @@ const OfferSchema = new mongoose.Schema({
 
     // Aplicaciones de usuarios a la oferta
     applications: [{
-        user: { 
-            type: mongoose.Schema.Types.ObjectId, 
-            ref: 'User' 
+        user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
         },
         answers: [{
             question: { type: String },
             responseType: { type: String },
             answer: { type: mongoose.Schema.Types.Mixed }
         }],
-        status: { 
-            type: String, 
-            enum: ['pending', 'reviewed', 'accepted', 'rejected'], 
+        status: {
+            type: String,
+            enum: ['pending', 'reviewed', 'accepted', 'rejected'],
             default: 'pending'
         },
-        appliedAt: { 
-            type: Date, 
-            default: Date.now 
+        appliedAt: {
+            type: Date,
+            default: Date.now
         }
     }],
 
