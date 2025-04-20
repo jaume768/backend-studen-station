@@ -77,7 +77,7 @@ const OfferSchema = new mongoose.Schema({
     }],
 
     // Estado de la oferta: 'pending', 'accepted' o 'cancelled'
-    status: { type: String, enum: ['pending', 'accepted', 'cancelled'], default: 'accepted' }
+    status: { type: String, enum: ['pending', 'accepted', 'cancelled'], default: 'pending' }
 });
 
 module.exports = mongoose.model('Offer', OfferSchema);
