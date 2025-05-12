@@ -614,7 +614,7 @@ exports.getEducationalOffersByInstitution = async (req, res) => {
         const offers = await EducationalOffer.find({ status: "accepted" })
             .populate({
                 path: 'publisher',
-                select: 'username companyName profile professionalType city country'
+                select: 'username companyName profile professionalType city country professionalType skills'
             })
             .sort({ publicationDate: -1 });
         
@@ -637,7 +637,8 @@ exports.getEducationalOffersByInstitution = async (req, res) => {
                         country: offer.publisher.country || offer.location?.country || 'No especificado'
                     },
                     type: offer.publisher.professionalType === 4 ? 'public' : 'private',
-                    programs: []
+                    programs: [],
+                    skills: offer.publisher.skills || []
                 });
             }
             
