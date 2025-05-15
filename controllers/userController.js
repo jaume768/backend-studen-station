@@ -177,6 +177,110 @@ exports.updateProfilePicture = async (req, res) => {
     }
 };
 
+// Función para subir el CV
+exports.uploadCV = async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No se proporcionó ningún archivo' });
+    }
+
+    try {
+        // Verificamos si el usuario es una empresa (no puede subir CV)
+        const user = await User.findById(req.user.id);
+        if (user.professionalType === 1 || user.professionalType === 2 || user.professionalType === 4) {
+            return res.status(403).json({ error: 'Las empresas no pueden subir CV' });
+        }
+
+        const streamUpload = (req) => {
+            return new Promise((resolve, reject) => {
+                const stream = cloudinary.uploader.upload_stream(
+                    { 
+                        folder: 'cvs',
+                        resource_type: 'raw',
+                        format: 'pdf'
+                    },
+                    (error, result) => {
+                        if (result) {
+                            resolve(result);
+                        } else {
+                            reject(error);
+                        }
+                    }
+                );
+                streamifier.createReadStream(req.file.buffer).pipe(stream);
+            });
+        };
+
+        const result = await streamUpload(req);
+
+        const updatedUser = await User.findByIdAndUpdate(
+            req.user.id,
+            { cvUrl: result.secure_url },
+            { new: true }
+        );
+
+        res.status(200).json({ 
+            message: 'CV subido correctamente', 
+            cvUrl: result.secure_url,
+            user: updatedUser 
+        });
+    } catch (error) {
+        console.error('Error al subir CV:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Función para subir el Portfolio
+exports.uploadPortfolio = async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No se proporcionó ningún archivo' });
+    }
+
+    try {
+        // Verificamos si el usuario es una empresa (no puede subir Portfolio)
+        const user = await User.findById(req.user.id);
+        if (user.professionalType === 1 || user.professionalType === 2 || user.professionalType === 4) {
+            return res.status(403).json({ error: 'Las empresas no pueden subir Portfolio' });
+        }
+
+        const streamUpload = (req) => {
+            return new Promise((resolve, reject) => {
+                const stream = cloudinary.uploader.upload_stream(
+                    { 
+                        folder: 'portfolios',
+                        resource_type: 'raw',
+                        format: 'pdf'
+                    },
+                    (error, result) => {
+                        if (result) {
+                            resolve(result);
+                        } else {
+                            reject(error);
+                        }
+                    }
+                );
+                streamifier.createReadStream(req.file.buffer).pipe(stream);
+            });
+        };
+
+        const result = await streamUpload(req);
+
+        const updatedUser = await User.findByIdAndUpdate(
+            req.user.id,
+            { portfolioUrl: result.secure_url },
+            { new: true }
+        );
+
+        res.status(200).json({ 
+            message: 'Portfolio subido correctamente', 
+            portfolioUrl: result.secure_url,
+            user: updatedUser 
+        });
+    } catch (error) {
+        console.error('Error al subir Portfolio:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
 exports.deleteProfile = async (req, res) => {
     try {
         // Realizar soft-delete: marcar la cuenta como inactiva

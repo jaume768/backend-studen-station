@@ -19,8 +19,9 @@ router.put('/change-password', ensureAuthenticated, userController.changePasswor
 
 router.put('/profile-picture', ensureAuthenticated, upload.single('file'), userController.updateProfilePicture);
 
-// Nueva ruta para subir archivos PDF
-router.post('/upload-pdf', ensureAuthenticated, upload.single('file'), userController.uploadPdf);
+// Rutas específicas para subir CV y Portfolio
+router.put('/cv', ensureAuthenticated, upload.single('file'), userController.uploadCV);
+router.put('/portfolio', ensureAuthenticated, upload.single('file'), userController.uploadPortfolio);
 
 router.delete('/profile', ensureAuthenticated, userController.deleteProfile);
 
