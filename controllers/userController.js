@@ -792,7 +792,7 @@ exports.getCreatives = async (req, res) => {
         
         // Buscar usuarios
         const users = await User.find(filter)
-            .select('username fullName country professionalTitle profile.profilePicture skills')
+            .select('username fullName country professionalTitle profile.profilePicture skills professionalTags city')
             .skip(skip)
             .limit(limitNumber)
             .lean();
