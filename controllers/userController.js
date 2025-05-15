@@ -110,6 +110,16 @@ exports.updateProfile = async (req, res) => {
         if (updates.bio) {
             updates.bio = updates.bio.substring(0, 150);
         }
+        
+        // Validar professionalTags
+        if (updates.professionalTags) {
+            if (!Array.isArray(updates.professionalTags)) {
+                updates.professionalTags = [];
+            } else if (updates.professionalTags.length > 3) {
+                // Limitar a 3 etiquetas
+                updates.professionalTags = updates.professionalTags.slice(0, 3);
+            }
+        }
 
         const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true });
         res.status(200).json({ message: 'Perfil actualizado', user });

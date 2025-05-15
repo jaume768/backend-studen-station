@@ -1,5 +1,10 @@
 const mongoose = require('mongoose');
 
+// Función de validación para limitar arrays a 3 elementos
+function arrayLimit(val) {
+    return val.length <= 3;
+}
+
 const UserSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     fullName: { type: String },
@@ -16,6 +21,7 @@ const UserSchema = new mongoose.Schema({
     biography: { type: String },
     bio: { type: String, maxlength: 150 },
     professionalTitle: { type: String, default: "" },
+    professionalTags: { type: [String], default: [], validate: [arrayLimit, 'Máximo 3 etiquetas permitidas'] },
 
     // Campos específicos para Creativos
     // creativeType: 1 (Estudiantes), 2 (Graduados), 3 (Estilistas), 4 (Diseñador de marca propia), 5 (Otro)
