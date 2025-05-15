@@ -105,6 +105,11 @@ exports.updateProfile = async (req, res) => {
         if (updates.offersPractices !== undefined) {
             updates.offersPractices = Boolean(updates.offersPractices);
         }
+        
+        // Limitar el campo bio a 150 caracteres
+        if (updates.bio) {
+            updates.bio = updates.bio.substring(0, 150);
+        }
 
         const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true });
         res.status(200).json({ message: 'Perfil actualizado', user });

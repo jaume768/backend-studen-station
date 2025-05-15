@@ -14,6 +14,7 @@ const UserSchema = new mongoose.Schema({
     referralSource: { type: String }, // ¿Cómo nos has conocido?
     termsAccepted: { type: Boolean },
     biography: { type: String },
+    bio: { type: String, maxlength: 150 },
     professionalTitle: { type: String, default: "" },
 
     // Campos específicos para Creativos
