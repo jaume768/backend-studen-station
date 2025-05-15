@@ -22,6 +22,7 @@ const UserSchema = new mongoose.Schema({
     bio: { type: String, maxlength: 150 },
     professionalTitle: { type: String, default: "" },
     professionalTags: { type: [String], default: [], validate: [arrayLimit, 'Máximo 3 etiquetas permitidas'] },
+    languages: { type: [String], default: [] },
 
     // Campos específicos para Creativos
     // creativeType: 1 (Estudiantes), 2 (Graduados), 3 (Estilistas), 4 (Diseñador de marca propia), 5 (Otro)

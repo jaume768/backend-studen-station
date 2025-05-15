@@ -120,6 +120,16 @@ exports.updateProfile = async (req, res) => {
                 updates.professionalTags = updates.professionalTags.slice(0, 3);
             }
         }
+        
+        // Validar idiomas
+        if (updates.languages) {
+            if (!Array.isArray(updates.languages)) {
+                updates.languages = [];
+            } else if (updates.languages.length > 5) {
+                // Limitar a 5 idiomas
+                updates.languages = updates.languages.slice(0, 5);
+            }
+        }
 
         const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true });
         res.status(200).json({ message: 'Perfil actualizado', user });
