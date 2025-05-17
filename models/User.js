@@ -63,11 +63,12 @@ const UserSchema = new mongoose.Schema({
     education: [
         {
             institution: { type: String },
-            // Ya no necesitamos el campo otherInstitution ya que institution ahora es un campo de texto libre
             formationName: { type: String },
-            // Cambiado a Number para almacenar solamente el año
-            formationStart: { type: Number },
-            formationEnd: { type: Number },
+            // Almacenamos mes y año como números separados
+            formationStartMonth: { type: Number, min: 1, max: 12 },
+            formationStartYear: { type: Number, min: 1950, max: 2100 },
+            formationEndMonth: { type: Number, min: 1, max: 12 },
+            formationEndYear: { type: Number, min: 1950, max: 2100 },
             currentlyEnrolled: { type: Boolean }
         }
     ],
