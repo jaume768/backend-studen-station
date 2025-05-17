@@ -63,10 +63,11 @@ const UserSchema = new mongoose.Schema({
     education: [
         {
             institution: { type: String },
-            otherInstitution: { type: String },
+            // Ya no necesitamos el campo otherInstitution ya que institution ahora es un campo de texto libre
             formationName: { type: String },
-            formationStart: { type: Date },
-            formationEnd: { type: Date },
+            // Cambiado de Date a String para almacenar solo mes y año (YYYY-MM)
+            formationStart: { type: String },
+            formationEnd: { type: String },
             currentlyEnrolled: { type: Boolean }
         }
     ],
