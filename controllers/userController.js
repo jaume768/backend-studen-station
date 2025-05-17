@@ -190,13 +190,17 @@ exports.uploadCV = async (req, res) => {
             return res.status(403).json({ error: 'Las empresas no pueden subir CV' });
         }
 
+        // Extraer el nombre original del archivo
+        const originalFileName = req.file.originalname;
+        
         const streamUpload = (req) => {
             return new Promise((resolve, reject) => {
                 const stream = cloudinary.uploader.upload_stream(
                     { 
                         folder: 'cvs',
                         resource_type: 'raw',
-                        format: 'pdf'
+                        format: 'pdf',
+                        public_id: originalFileName.replace(/\.pdf$/i, '') // Mantener nombre original sin extensión
                     },
                     (error, result) => {
                         if (result) {
@@ -212,9 +216,13 @@ exports.uploadCV = async (req, res) => {
 
         const result = await streamUpload(req);
 
+        // Guardar tanto la URL como el nombre original
         const updatedUser = await User.findByIdAndUpdate(
             req.user.id,
-            { cvUrl: result.secure_url },
+            { 
+                cvUrl: result.secure_url,
+                cvFileName: originalFileName // Guardar el nombre original
+            },
             { new: true }
         );
 
@@ -242,13 +250,17 @@ exports.uploadPortfolio = async (req, res) => {
             return res.status(403).json({ error: 'Las empresas no pueden subir Portfolio' });
         }
 
+        // Extraer el nombre original del archivo
+        const originalFileName = req.file.originalname;
+        
         const streamUpload = (req) => {
             return new Promise((resolve, reject) => {
                 const stream = cloudinary.uploader.upload_stream(
                     { 
                         folder: 'portfolios',
                         resource_type: 'raw',
-                        format: 'pdf'
+                        format: 'pdf',
+                        public_id: originalFileName.replace(/\.pdf$/i, '') // Mantener nombre original sin extensión
                     },
                     (error, result) => {
                         if (result) {
@@ -264,9 +276,13 @@ exports.uploadPortfolio = async (req, res) => {
 
         const result = await streamUpload(req);
 
+        // Guardar tanto la URL como el nombre original
         const updatedUser = await User.findByIdAndUpdate(
             req.user.id,
-            { portfolioUrl: result.secure_url },
+            { 
+                portfolioUrl: result.secure_url,
+                portfolioFileName: originalFileName // Guardar el nombre original
+            },
             { new: true }
         );
 

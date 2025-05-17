@@ -57,9 +57,11 @@ const UserSchema = new mongoose.Schema({
             linkedin: { type: String }
         }
     },
-    // URLs para archivos PDF
-    cvUrl: { type: String }, // URL del CV en PDF
-    portfolioUrl: { type: String }, // URL del portfolio en PDF
+    // URLs y nombres originales para CV y Portfolio
+    cvUrl: { type: String },
+    cvFileName: { type: String },
+    portfolioUrl: { type: String },
+    portfolioFileName: { type: String },
     education: [
         {
             institution: { type: String },
