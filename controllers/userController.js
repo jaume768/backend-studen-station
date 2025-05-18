@@ -86,31 +86,31 @@ exports.changePassword = async (req, res) => {
 exports.updateProfile = async (req, res) => {
     try {
         const updates = req.body;
-        
+
         // Asegurarse de que los arrays estén definidos correctamente
         if (updates.professionalMilestones && !Array.isArray(updates.professionalMilestones)) {
             updates.professionalMilestones = [];
         }
-        
+
         if (updates.companyTags && !Array.isArray(updates.companyTags)) {
             updates.companyTags = [];
         }
-        
+
         // Limitar etiquetas a un máximo de 3
         if (Array.isArray(updates.companyTags) && updates.companyTags.length > 3) {
             updates.companyTags = updates.companyTags.slice(0, 3);
         }
-        
+
         // Asegurarse de que offersPractices sea booleano
         if (updates.offersPractices !== undefined) {
             updates.offersPractices = Boolean(updates.offersPractices);
         }
-        
+
         // Limitar el campo bio a 150 caracteres
         if (updates.bio) {
             updates.bio = updates.bio.substring(0, 150);
         }
-        
+
         // Validar professionalTags
         if (updates.professionalTags) {
             if (!Array.isArray(updates.professionalTags)) {
@@ -120,7 +120,7 @@ exports.updateProfile = async (req, res) => {
                 updates.professionalTags = updates.professionalTags.slice(0, 3);
             }
         }
-        
+
         // Validar idiomas
         if (updates.languages) {
             if (!Array.isArray(updates.languages)) {
@@ -192,11 +192,11 @@ exports.uploadCV = async (req, res) => {
 
         // Extraer el nombre original del archivo
         const originalFileName = req.file.originalname;
-        
+
         const streamUpload = (req) => {
             return new Promise((resolve, reject) => {
                 const stream = cloudinary.uploader.upload_stream(
-                    { 
+                    {
                         folder: 'cvs',
                         resource_type: 'raw',
                         format: 'pdf',
@@ -219,17 +219,17 @@ exports.uploadCV = async (req, res) => {
         // Guardar tanto la URL como el nombre original
         const updatedUser = await User.findByIdAndUpdate(
             req.user.id,
-            { 
+            {
                 cvUrl: result.secure_url,
                 cvFileName: originalFileName // Guardar el nombre original
             },
             { new: true }
         );
 
-        res.status(200).json({ 
-            message: 'CV subido correctamente', 
+        res.status(200).json({
+            message: 'CV subido correctamente',
             cvUrl: result.secure_url,
-            user: updatedUser 
+            user: updatedUser
         });
     } catch (error) {
         console.error('Error al subir CV:', error);
@@ -252,11 +252,11 @@ exports.uploadPortfolio = async (req, res) => {
 
         // Extraer el nombre original del archivo
         const originalFileName = req.file.originalname;
-        
+
         const streamUpload = (req) => {
             return new Promise((resolve, reject) => {
                 const stream = cloudinary.uploader.upload_stream(
-                    { 
+                    {
                         folder: 'portfolios',
                         resource_type: 'raw',
                         format: 'pdf',
@@ -279,17 +279,17 @@ exports.uploadPortfolio = async (req, res) => {
         // Guardar tanto la URL como el nombre original
         const updatedUser = await User.findByIdAndUpdate(
             req.user.id,
-            { 
+            {
                 portfolioUrl: result.secure_url,
                 portfolioFileName: originalFileName // Guardar el nombre original
             },
             { new: true }
         );
 
-        res.status(200).json({ 
-            message: 'Portfolio subido correctamente', 
+        res.status(200).json({
+            message: 'Portfolio subido correctamente',
             portfolioUrl: result.secure_url,
-            user: updatedUser 
+            user: updatedUser
         });
     } catch (error) {
         console.error('Error al subir Portfolio:', error);
@@ -310,14 +310,14 @@ exports.deleteProfile = async (req, res) => {
 exports.addFavorite = async (req, res) => {
     const postId = req.params.postId;
     const { imageUrl } = req.body;
-    
+
     if (!imageUrl) {
         return res.status(400).json({ error: 'Se requiere la URL de la imagen' });
     }
-    
+
     try {
         const user = await User.findById(req.user.id);
-        
+
         if (Array.isArray(user.favorites)) {
             user.favorites = user.favorites.filter(fav => {
                 if (typeof fav === 'object' && fav.postId && fav.savedImage) {
@@ -328,15 +328,15 @@ exports.addFavorite = async (req, res) => {
         } else {
             user.favorites = [];
         }
-        
+
         const newFavorite = {
             postId,
             savedImage: imageUrl,
             savedAt: new Date()
-        };   
+        };
 
         user.favorites.push(newFavorite);
-        
+
         try {
             await user.save();
             res.status(200).json({ message: 'Imagen guardada en favoritos', favorites: user.favorites });
@@ -351,10 +351,10 @@ exports.addFavorite = async (req, res) => {
 exports.removeFavorite = async (req, res) => {
     const postId = req.params.postId;
     const { imageUrl } = req.body || {};
-    
+
     try {
         const user = await User.findById(req.user.id);
-        
+
         if (imageUrl) {
             user.favorites = user.favorites.filter(fav => {
                 if (typeof fav === 'object' && fav.postId && fav.savedImage) {
@@ -371,7 +371,7 @@ exports.removeFavorite = async (req, res) => {
                 return fav.toString() !== postId;
             });
         }
-        
+
         await user.save();
         res.status(200).json({ message: 'Imagen removida de favoritos', favorites: user.favorites });
     } catch (error) {
@@ -382,14 +382,14 @@ exports.removeFavorite = async (req, res) => {
 exports.getFavorites = async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
-        
+
         // Procesar favoritos para incluir información completa del post
         const favorites = await Promise.all(user.favorites.map(async (fav) => {
             // Si es un objeto con savedImage
             if (typeof fav === 'object' && fav.savedImage) {
                 const post = await Post.findById(fav.postId);
                 if (!post) return null;
-                
+
                 return {
                     _id: fav._id || fav.postId, // Usar _id del favorito si existe, o postId como fallback
                     postId: fav.postId,
@@ -401,15 +401,15 @@ exports.getFavorites = async (req, res) => {
                     createdAt: post.createdAt,
                     savedAt: fav.savedAt || new Date()
                 };
-            } 
+            }
             // Si es solo un ID (caso antiguo)
             else {
                 const postId = typeof fav === 'object' ? fav.postId : fav;
                 const post = await Post.findById(postId);
                 if (!post) return null;
-                
+
                 const mainImage = post.images && post.images.length > 0 ? post.images[0] : null;
-                
+
                 return {
                     _id: fav._id || postId,
                     postId: postId,
@@ -423,13 +423,13 @@ exports.getFavorites = async (req, res) => {
                 };
             }
         }));
-        
+
         // Filtrar valores nulos (posts que podrían haber sido eliminados)
         const validFavorites = favorites.filter(fav => fav !== null);
-        
+
         // Ordenar por fecha de guardado (más reciente primero)
         validFavorites.sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
-        
+
         res.status(200).json({ favorites: validFavorites });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -480,12 +480,12 @@ exports.getSavedOffers = async (req, res) => {
 exports.getAppliedOffers = async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
-        
+
         // Verificar si el usuario es de tipo creativo
         if (user.role !== 'Creativo') {
             return res.status(403).json({ error: 'Solo perfiles creativos pueden ver ofertas aplicadas' });
         }
-        
+
         // Verificar si hay ofertas aplicadas
         if (!user.appliedOffers || !Array.isArray(user.appliedOffers) || user.appliedOffers.length === 0) {
             return res.status(200).json({ offers: [] });
@@ -720,10 +720,10 @@ exports.searchUsers = async (req, res) => {
 // Obtener usuarios creativos (con su último post)
 exports.getCreatives = async (req, res) => {
     try {
-        const { 
-            page = 1, 
-            limit = 9, 
-            country, 
+        const {
+            page = 1,
+            limit = 9,
+            country,
             category,
             search,
             city,
@@ -737,14 +737,42 @@ exports.getCreatives = async (req, res) => {
         } = req.query;
         const pageNumber = parseInt(page);
         const limitNumber = parseInt(limit);
-        const skip = (pageNumber - 1) * limitNumber;
 
-        // Construir el filtro base
-        let filter = { 
+        // NUEVO ENFOQUE: Primero encontramos todos los usuarios que tienen posts
+        // Consultar posts y agruparlos por usuario
+        const postFilter = {};
+        if (category) {
+            postFilter.categories = { $in: [category] };
+        }
+
+        // Obtener todos los usuarios que tienen posts usando una consulta de agregación
+        const usersWithPosts = await Post.aggregate([
+            { $match: postFilter },
+            {
+                $group: {
+                    _id: '$user',
+                    postCount: { $sum: 1 },
+                    lastPostId: { $last: '$_id' },
+                    lastPostImage: { $last: '$mainImage' },
+                    lastPostTitle: { $last: '$title' },
+                    lastPostDate: { $last: '$createdAt' }
+                }
+            },
+            { $sort: { lastPostDate: -1 } }
+        ]);
+
+        // Extraer los IDs de usuarios que tienen posts
+        const userIdsWithPosts = usersWithPosts.map(u => u._id);
+
+        console.log(`Encontrados ${userIdsWithPosts.length} usuarios con posts`);
+
+        // Construir el filtro base, incluyendo solo usuarios con posts
+        let filter = {
+            _id: { $in: userIdsWithPosts },
             isActive: true,
             professionalType: { $nin: [1, 2, 3, 4] }
         };
-        
+
         // Aplicar filtros adicionales si se proporcionan
         if (search) {
             // Búsqueda por texto en varios campos
@@ -755,98 +783,78 @@ exports.getCreatives = async (req, res) => {
                 { biography: { $regex: search, $options: 'i' } }
             ];
         }
-        
+
         if (country) {
             filter.country = { $regex: country, $options: 'i' };
         }
-        
+
         if (city) {
             filter.city = { $regex: city, $options: 'i' };
         }
-        
+
         if (school) {
             filter.$or = [
                 { 'education.institution': { $regex: school, $options: 'i' } },
                 { institution: { $regex: school, $options: 'i' } }
             ];
         }
-        
+
         if (skills) {
             filter.skills = { $in: [new RegExp(skills, 'i')] };
         }
-        
+
         if (graduationYear) {
-            // Buscar en educación donde el año de finalización coincida
-            filter['education.formationEnd'] = { 
-                $gte: new Date(`${graduationYear}-01-01`), 
-                $lte: new Date(`${graduationYear}-12-31`) 
+            filter['education.formationEnd'] = {
+                $gte: new Date(`${graduationYear}-01-01`),
+                $lte: new Date(`${graduationYear}-12-31`)
             };
         }
-        
+
         if (professionalProfile) {
             filter.professionalTitle = { $regex: professionalProfile, $options: 'i' };
         }
-        
+
         if (software) {
             filter.software = { $in: [new RegExp(software, 'i')] };
         }
-        
-        if (availability) {
-            // Mapear disponibilidad a los campos de contrato
-            if (availability === 'Inmediata') {
-                // Lógica para disponibilidad inmediata
-            } else if (availability === '1 mes') {
-                // Lógica para disponibilidad en 1 mes
-            } else if (availability === '3 meses') {
-                // Lógica para disponibilidad en 3 meses
-            }
-        }
-        
+
         if (internships === 'true') {
             filter['contract.practicas'] = true;
         }
-        
-        // Buscar usuarios
+
+        // Contar el total de usuarios para la paginación
+        const total = await User.countDocuments(filter);
+
+        // Calcular el número de páginas total y el salto (skip) para la paginación
+        const totalPages = Math.ceil(total / limitNumber);
+        const skip = (pageNumber - 1) * limitNumber;
+
+        // Buscar usuarios con los filtros aplicados
         const users = await User.find(filter)
             .select('username fullName country professionalTitle profile.profilePicture skills professionalTags city')
             .skip(skip)
             .limit(limitNumber)
             .lean();
-        
-        // Contar el total de usuarios para la paginación
-        const total = await User.countDocuments(filter);
-        
-        // Para cada usuario, buscar su último post
-        const usersWithLastPost = await Promise.all(users.map(async (user) => {
-            // Buscar el último post del usuario, filtrando por categoría si es necesario
-            const postFilter = { user: user._id };
-            if (category) {
-                postFilter.categories = { $in: [category] };
-            }
-            
-            const lastPost = await Post.findOne(postFilter)
-                .sort({ createdAt: -1 })
-                .select('mainImage title')
-                .lean();
-                
+
+        // Mapear la información de posts a cada usuario
+        const usersWithLastPost = users.map(user => {
+            const userPostInfo = usersWithPosts.find(p => p._id.toString() === user._id.toString());
             return {
                 ...user,
-                lastPost: lastPost || null
+                lastPost: userPostInfo ? {
+                    _id: userPostInfo.lastPostId,
+                    mainImage: userPostInfo.lastPostImage,
+                    title: userPostInfo.lastPostTitle
+                } : null
             };
-        }));
-        
-        // Filtrar usuarios que no tienen posts (siempre, no solo cuando hay categoría)
-        const filteredUsers = usersWithLastPost;
-        
+        });
+
         // Obtener países únicos para el filtro
         const countries = await User.distinct('country', { isActive: true });
-        
-        // Actualizar el contador total para reflejar solo usuarios con posts
-        const filteredTotal = filteredUsers.length;
-        
+
         res.status(200).json({
-            creatives: filteredUsers,
-            totalPages: Math.ceil(filteredTotal / limitNumber),
+            creatives: usersWithLastPost,
+            totalPages: totalPages,
             currentPage: pageNumber,
             countries: countries.filter(c => c) // Filtrar valores nulos o vacíos
         });
@@ -870,7 +878,7 @@ exports.uploadPdf = async (req, res) => {
         const streamUpload = (req) => {
             return new Promise((resolve, reject) => {
                 const stream = cloudinary.uploader.upload_stream(
-                    { 
+                    {
                         folder: `user_documents/${type}`,
                         resource_type: 'auto',
                         format: 'pdf',
@@ -890,23 +898,23 @@ exports.uploadPdf = async (req, res) => {
         };
 
         const result = await streamUpload(req);
-        
+
         // Usar directamente la URL segura proporcionada por Cloudinary
         const fileUrl = result.secure_url;
-        
+
         // Actualizar el campo correspondiente en el usuario
         const updateField = type === 'cv' ? { cvUrl: fileUrl } : { portfolioUrl: fileUrl };
-        
+
         const updatedUser = await User.findByIdAndUpdate(
             req.user.id,
             updateField,
             { new: true }
         );
 
-        res.status(200).json({ 
-            success: true, 
+        res.status(200).json({
+            success: true,
             fileUrl: fileUrl,
-            message: `${type === 'cv' ? 'CV' : 'Portfolio'} subido correctamente` 
+            message: `${type === 'cv' ? 'CV' : 'Portfolio'} subido correctamente`
         });
     } catch (error) {
         console.error('Error al subir el archivo PDF:', error);
@@ -918,28 +926,28 @@ exports.uploadPdf = async (req, res) => {
 exports.getUserOffers = async (req, res) => {
     try {
         const { userId } = req.params;
-        
+
         if (!userId) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Se requiere el ID del usuario' 
+            return res.status(400).json({
+                success: false,
+                message: 'Se requiere el ID del usuario'
             });
         }
 
         // Verificar si el usuario existe
         const user = await User.findById(userId);
         if (!user) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Usuario no encontrado' 
+            return res.status(404).json({
+                success: false,
+                message: 'Usuario no encontrado'
             });
         }
 
         // Evitar mostrar ofertas de usuarios de tipo 4 (instituciones educativas)
         if (user.professionalType === 4) {
-            return res.status(200).json({ 
-                success: true, 
-                offers: [] 
+            return res.status(200).json({
+                success: true,
+                offers: []
             });
         }
 
@@ -948,17 +956,17 @@ exports.getUserOffers = async (req, res) => {
         const offers = await Offer.find({ publisher: userId })
             .sort({ publicationDate: -1 })
             .lean();
-        
-        return res.status(200).json({ 
-            success: true, 
-            offers 
+
+        return res.status(200).json({
+            success: true,
+            offers
         });
     } catch (error) {
         console.error('Error al obtener ofertas del usuario:', error);
-        return res.status(500).json({ 
-            success: false, 
-            message: 'Error al obtener las ofertas del usuario', 
-            error: error.message 
+        return res.status(500).json({
+            success: false,
+            message: 'Error al obtener las ofertas del usuario',
+            error: error.message
         });
     }
 };
@@ -967,28 +975,28 @@ exports.getUserOffers = async (req, res) => {
 exports.getUserEducationalOffers = async (req, res) => {
     try {
         const { userId } = req.params;
-        
+
         if (!userId) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Se requiere el ID del usuario' 
+            return res.status(400).json({
+                success: false,
+                message: 'Se requiere el ID del usuario'
             });
         }
 
         // Verificar si el usuario existe
         const user = await User.findById(userId);
         if (!user) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Usuario no encontrado' 
+            return res.status(404).json({
+                success: false,
+                message: 'Usuario no encontrado'
             });
         }
 
         // Solo mostrar ofertas educativas para usuarios de tipo 4 (instituciones educativas)
         if (user.professionalType !== 4) {
-            return res.status(200).json({ 
-                success: true, 
-                offers: [] 
+            return res.status(200).json({
+                success: true,
+                offers: []
             });
         }
 
@@ -997,17 +1005,17 @@ exports.getUserEducationalOffers = async (req, res) => {
         const offers = await EducationalOffer.find({ publisher: userId })
             .sort({ publicationDate: -1 })
             .lean();
-        
-        return res.status(200).json({ 
-            success: true, 
-            offers 
+
+        return res.status(200).json({
+            success: true,
+            offers
         });
     } catch (error) {
         console.error('Error al obtener ofertas educativas del usuario:', error);
-        return res.status(500).json({ 
-            success: false, 
-            message: 'Error al obtener las ofertas educativas del usuario', 
-            error: error.message 
+        return res.status(500).json({
+            success: false,
+            message: 'Error al obtener las ofertas educativas del usuario',
+            error: error.message
         });
     }
 };
@@ -1015,26 +1023,26 @@ exports.getUserEducationalOffers = async (req, res) => {
 exports.searchAll = async (req, res) => {
     try {
         const { query, searchByFullName, searchByUsername, includePosts, includeUserPosts } = req.query;
-        
+
         if (!query || query.length < 2) {
             return res.status(400).json({ message: 'La búsqueda debe tener al menos 2 caracteres' });
         }
 
         const regex = new RegExp(query, 'i');
-        
+
         // Configurar condiciones de búsqueda para usuarios según parámetros
         let userSearchCriteria = [];
-        
+
         // Siempre incluir estos campos en la búsqueda
         userSearchCriteria.push({ companyName: regex });
         userSearchCriteria.push({ professionalTitle: regex });
         userSearchCriteria.push({ biography: regex });
-        
+
         // Incluir búsqueda por nombre completo si se solicita
         if (searchByFullName !== 'false') {
             userSearchCriteria.push({ fullName: regex });
         }
-        
+
         // Incluir búsqueda por username si se solicita
         if (searchByUsername !== 'false') {
             userSearchCriteria.push({ username: regex });
@@ -1045,9 +1053,9 @@ exports.searchAll = async (req, res) => {
             $or: userSearchCriteria,
             isActive: true
         })
-        .select('username fullName professionalTitle companyName role professionalType profile.profilePicture')
-        .limit(10);
-        
+            .select('username fullName professionalTitle companyName role professionalType profile.profilePicture')
+            .limit(10);
+
         // Obtener IDs de usuarios encontrados para buscar sus publicaciones
         const userIds = users.map(user => user._id);
 
@@ -1057,7 +1065,7 @@ exports.searchAll = async (req, res) => {
             { description: regex },
             { tags: regex }
         ];
-        
+
         // Si se solicita incluir posts de usuarios encontrados
         if (includeUserPosts === 'true' && userIds.length > 0) {
             postQueries.push({ user: { $in: userIds } });
@@ -1067,10 +1075,10 @@ exports.searchAll = async (req, res) => {
         const posts = await Post.find({
             $or: postQueries
         })
-        .populate('user', 'username fullName companyName profile.profilePicture')
-        .select('title description mainImage createdAt')
-        .sort({ createdAt: -1 })
-        .limit(20); // Aumentamos el límite para mostrar más posts
+            .populate('user', 'username fullName companyName profile.profilePicture')
+            .select('title description mainImage createdAt')
+            .sort({ createdAt: -1 })
+            .limit(20); // Aumentamos el límite para mostrar más posts
 
         // Búsqueda de ofertas de trabajo
         const offers = await Offer.find({
@@ -1083,9 +1091,9 @@ exports.searchAll = async (req, res) => {
             ],
             status: 'accepted'
         })
-        .select('companyName position city publicationDate companyLogo')
-        .sort({ publicationDate: -1 })
-        .limit(10);
+            .select('companyName position city publicationDate companyLogo')
+            .sort({ publicationDate: -1 })
+            .limit(10);
 
         // Búsqueda de ofertas educativas
         const educationalOffers = await EducationalOffer.find({
@@ -1098,9 +1106,9 @@ exports.searchAll = async (req, res) => {
             ],
             status: 'accepted'
         })
-        .select('programName studyType knowledgeArea modality startDate images')
-        .sort({ publicationDate: -1 })
-        .limit(10);
+            .select('programName studyType knowledgeArea modality startDate images')
+            .sort({ publicationDate: -1 })
+            .limit(10);
 
         return res.status(200).json({
             results: {
@@ -1121,13 +1129,13 @@ exports.searchAll = async (req, res) => {
 exports.checkUsernameExists = async (req, res) => {
     try {
         const { username } = req.params;
-        
+
         if (!username) {
             return res.status(400).json({ message: 'Username is required' });
         }
-        
+
         const user = await User.findOne({ username });
-        
+
         return res.status(200).json({
             exists: !!user,
             message: user ? 'Username exists' : 'Username does not exist'
