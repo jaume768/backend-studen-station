@@ -836,7 +836,7 @@ exports.getCreatives = async (req, res) => {
         }));
         
         // Filtrar usuarios que no tienen posts (siempre, no solo cuando hay categoría)
-        const filteredUsers = usersWithLastPost.filter(user => user.lastPost);
+        const filteredUsers = usersWithLastPost;
         
         // Obtener países únicos para el filtro
         const countries = await User.distinct('country', { isActive: true });
