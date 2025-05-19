@@ -68,9 +68,9 @@ const UserSchema = new mongoose.Schema({
             formationName: { type: String },
             // Almacenamos mes y año como números separados
             formationStartMonth: { type: Number, min: 1, max: 12 },
-            formationStartYear: { type: Number, min: 1950, max: 2100 },
+            formationStartYear: { type: Number },
             formationEndMonth: { type: Number, min: 1, max: 12 },
-            formationEndYear: { type: Number, min: 1950, max: 2100 },
+            formationEndYear: { type: Number },
             currentlyEnrolled: { type: Boolean }
         }
     ],
@@ -120,9 +120,9 @@ const UserSchema = new mongoose.Schema({
             description: { type: String },
             // Fechas como campos separados para mes y año (mismo formato que education)
             startMonth: { type: Number, min: 1, max: 12 },
-            startYear: { type: Number, min: 1950, max: 2100 },
+            startYear: { type: Number },
             endMonth: { type: Number, min: 1, max: 12 },
-            endYear: { type: Number, min: 1950, max: 2100 },
+            endYear: { type: Number },
             currentlyWorking: { type: Boolean, default: false }
         }
     ],
