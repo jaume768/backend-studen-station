@@ -131,6 +131,12 @@ exports.getPostById = async (req, res) => {
     try {
         const post = await Post.findById(req.params.id).populate('user');
         if (!post) return res.status(404).json({ message: 'Post no encontrado' });
+        
+        // Verificar si el usuario existe (podría haber sido eliminado)
+        if (!post.user) {
+            return res.status(404).json({ message: 'El post pertenece a un usuario que ya no existe en la plataforma' });
+        }
+        
         res.status(200).json({ post });
     } catch (error) {
         res.status(500).json({ error: error.message });
