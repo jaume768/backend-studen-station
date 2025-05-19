@@ -115,11 +115,15 @@ const UserSchema = new mongoose.Schema({
     
     professionalFormation: [
         {
-            trainingName: { type: String },
+            title: { type: String },
             institution: { type: String },
-            trainingStart: { type: Date },
-            trainingEnd: { type: Date },
-            currentlyInProgress: { type: Boolean }
+            description: { type: String },
+            // Fechas como campos separados para mes y año (mismo formato que education)
+            startMonth: { type: Number, min: 1, max: 12 },
+            startYear: { type: Number, min: 1950, max: 2100 },
+            endMonth: { type: Number, min: 1, max: 12 },
+            endYear: { type: Number, min: 1950, max: 2100 },
+            currentlyWorking: { type: Boolean, default: false }
         }
     ],
 
