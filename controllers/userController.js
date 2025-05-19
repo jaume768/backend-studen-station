@@ -9,6 +9,12 @@ const bcrypt = require('bcryptjs');
 exports.getProfile = async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
+        
+        // Verificar si el usuario existe
+        if (!user) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+        
         const userObj = user.toObject();
         userObj.hasPassword = !!(user.password && user.password.trim() !== "");
         res.status(200).json(userObj);
@@ -382,6 +388,16 @@ exports.removeFavorite = async (req, res) => {
 exports.getFavorites = async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
+        
+        // Verificar si el usuario existe
+        if (!user) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        // Asegurarse de que favorites exista y sea un array
+        if (!user.favorites || !Array.isArray(user.favorites)) {
+            return res.status(200).json({ favorites: [] });
+        }
 
         // Procesar favoritos para incluir información completa del post
         const favorites = await Promise.all(user.favorites.map(async (fav) => {

@@ -355,13 +355,19 @@ exports.getExplorerPosts = async (req, res) => {
         // Generar array de imágenes con la información del post
         let postImages = [];
         posts.forEach(post => {
+            // Verificar si post.user existe antes de procesar
+            if (!post.user) {
+                console.log(`Post ${post._id} tiene un usuario no válido o eliminado, omitiendo...`);
+                return; // Saltar este post
+            }
+            
             post.images.forEach(imageUrl => {
                 postImages.push({
                     imageUrl,
                     postId: post._id,
                     postTitle: post.title,
                     user: {
-                        username: post.user.username,
+                        username: post.user.username || 'Usuario eliminado',
                         profilePicture: post.user.profile?.profilePicture || null,
                         city: post.user.city || null,
                         country: post.user.country || null
