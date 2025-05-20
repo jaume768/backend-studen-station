@@ -71,7 +71,10 @@ const UserSchema = new mongoose.Schema({
             formationStartYear: { type: Number },
             formationEndMonth: { type: Number, min: 1, max: 12 },
             formationEndYear: { type: Number },
-            currentlyEnrolled: { type: Boolean }
+            currentlyEnrolled: { type: Boolean },
+            // Nuevos campos
+            institutionLogo: { type: String }, // URL del logo de la institución
+            location: { type: String } // Ciudad, País
         }
     ],
     skills: { type: [String], default: [] },

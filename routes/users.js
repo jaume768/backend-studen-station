@@ -26,6 +26,9 @@ router.put('/portfolio', ensureAuthenticated, upload.single('file'), userControl
 // Ruta para subir logo de empresa para experiencia profesional
 router.post('/company-logo', ensureAuthenticated, upload.single('file'), userController.uploadCompanyLogo);
 
+// Ruta para subir logo de institución educativa
+router.post('/institution-logo', ensureAuthenticated, upload.single('file'), userController.uploadInstitutionLogo);
+
 router.delete('/profile', ensureAuthenticated, userController.deleteProfile);
 
 router.get('/favorites', ensureAuthenticated, userController.getFavorites);

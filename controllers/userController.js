@@ -1187,3 +1187,38 @@ exports.uploadCompanyLogo = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+// Función para subir logo de institución educativa
+exports.uploadInstitutionLogo = async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No se proporcionó ningún archivo' });
+    }
+
+    try {
+        const streamUpload = (req) => {
+            return new Promise((resolve, reject) => {
+                const stream = cloudinary.uploader.upload_stream(
+                    { folder: 'institution_logos' },
+                    (error, result) => {
+                        if (result) {
+                            resolve(result);
+                        } else {
+                            reject(error);
+                        }
+                    }
+                );
+                streamifier.createReadStream(req.file.buffer).pipe(stream);
+            });
+        };
+
+        const result = await streamUpload(req);
+        
+        res.status(200).json({ 
+            message: 'Logo de institución subido correctamente', 
+            logoUrl: result.secure_url 
+        });
+    } catch (error) {
+        console.error('Error al subir el logo de la institución:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
