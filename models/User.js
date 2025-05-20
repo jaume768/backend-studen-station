@@ -123,7 +123,10 @@ const UserSchema = new mongoose.Schema({
             startYear: { type: Number },
             endMonth: { type: Number, min: 1, max: 12 },
             endYear: { type: Number },
-            currentlyWorking: { type: Boolean, default: false }
+            currentlyWorking: { type: Boolean, default: false },
+            // Nuevos campos
+            companyLogo: { type: String }, // URL de la imagen del logo
+            location: { type: String } // Ciudad, País
         }
     ],
 
