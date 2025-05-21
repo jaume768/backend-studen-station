@@ -15,7 +15,25 @@ connectDB();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
-app.use(cors());
+
+const allowedOrigins = [
+  'https://thefolder.es',
+  'https://www.thefolder.es',
+  'http://localhost:3000',
+  'https://frontend-student-station-production.up.railway.app'
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Bloqueado por CORS'));
+    }
+  },
+  credentials: true
+}));
 
 // Configuración de sesión
 app.use(session({
@@ -42,25 +60,6 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: err.message });
 });
-
-const allowedOrigins = [
-  'https://thefolder.es',
-  'https://www.thefolder.es',
-  'http://localhost:3000',
-  'https://frontend-student-station-production.up.railway.app'
-];
-
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Bloqueado por CORS'));
-    }
-  },
-  credentials: true
-}));
 
 
 // Iniciar el servidor
