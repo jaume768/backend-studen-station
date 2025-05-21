@@ -43,11 +43,23 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message });
 });
 
-const allowedOrigin = 'https://frontend-student-station-production.up.railway.app';
+const allowedOrigins = [
+  'https://thefolder.es',
+  'https://www.thefolder.es',
+  'http://localhost:3000',
+  'https://frontend-student-station-production.up.railway.app'
+];
 
 app.use(cors({
-  origin: allowedOrigin,
-  credentials: true, // Permite que se envíen cookies y cabeceras de autorización
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Bloqueado por CORS'));
+    }
+  },
+  credentials: true
 }));
 
 
