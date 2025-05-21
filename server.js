@@ -20,7 +20,8 @@ const allowedOrigins = [
   'https://thefolder.es',
   'https://www.thefolder.es',
   'http://localhost:3000',
-  'https://frontend-student-station-production.up.railway.app'
+  'https://frontend-student-station-production.up.railway.app',
+  'https://frontend-admin-student-station-production.up.railway.app'
 ];
 
 app.use(cors({
