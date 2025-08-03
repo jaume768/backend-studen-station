@@ -5,6 +5,7 @@ const EducationalOffer = require('../models/EducationalOffer');
 const cloudinary = require('../config/cloudinary');
 const streamifier = require('streamifier');
 const bcrypt = require('bcryptjs');
+const { normalizeString, createNormalizedRegex } = require('../utils/textUtils');
 
 exports.getProfile = async (req, res) => {
     try {
@@ -791,32 +792,47 @@ exports.getCreatives = async (req, res) => {
 
         // Aplicar filtros adicionales si se proporcionan
         if (search) {
-            // Búsqueda por texto en varios campos
+            // Búsqueda por texto en varios campos con normalización
+            const normalizedSearchRegex = createNormalizedRegex(search);
             filter.$or = [
-                { username: { $regex: search, $options: 'i' } },
-                { fullName: { $regex: search, $options: 'i' } },
-                { professionalTitle: { $regex: search, $options: 'i' } },
-                { biography: { $regex: search, $options: 'i' } }
+                { username: { $regex: normalizedSearchRegex } },
+                { fullName: { $regex: normalizedSearchRegex } },
+                { professionalTitle: { $regex: normalizedSearchRegex } },
+                { biography: { $regex: normalizedSearchRegex } }
             ];
         }
 
         if (country) {
-            filter.country = { $regex: country, $options: 'i' };
+            // Normalizar búsqueda de país para ser insensible a tildes/acentos
+            const normalizedCountryRegex = createNormalizedRegex(country);
+            filter.country = { $regex: normalizedCountryRegex };
         }
 
         if (city) {
-            filter.city = { $regex: city, $options: 'i' };
+            // Normalizar búsqueda de ciudad para ser insensible a tildes/acentos
+            const normalizedCityRegex = createNormalizedRegex(city);
+            filter.city = { $regex: normalizedCityRegex };
         }
 
         if (school) {
+            // Normalizar búsqueda de centro de estudios para ser insensible a tildes/acentos
+            const normalizedSchoolRegex = createNormalizedRegex(school);
             filter.$or = [
-                { 'education.institution': { $regex: school, $options: 'i' } },
-                { institution: { $regex: school, $options: 'i' } }
+                { 'education.institution': { $regex: normalizedSchoolRegex } },
+                { institution: { $regex: normalizedSchoolRegex } }
             ];
         }
 
         if (skills) {
-            filter.skills = { $in: [new RegExp(skills, 'i')] };
+            // Normalizar búsqueda de skills para ser insensible a tildes/acentos y buscar en ambos campos
+            const normalizedSkillsRegex = createNormalizedRegex(skills);
+            filter.$or = filter.$or ? [...filter.$or, 
+                { skills: { $in: [normalizedSkillsRegex] } },
+                { software: { $in: [normalizedSkillsRegex] } }
+            ] : [
+                { skills: { $in: [normalizedSkillsRegex] } },
+                { software: { $in: [normalizedSkillsRegex] } }
+            ];
         }
 
         if (graduationYear) {
@@ -828,10 +844,6 @@ exports.getCreatives = async (req, res) => {
 
         if (professionalProfile) {
             filter.professionalTitle = { $regex: professionalProfile, $options: 'i' };
-        }
-
-        if (software) {
-            filter.software = { $in: [new RegExp(software, 'i')] };
         }
 
         if (internships === 'true') {
@@ -865,14 +877,16 @@ exports.getCreatives = async (req, res) => {
             };
         });
 
-        // Obtener países únicos para el filtro
+        // Obtener países y ciudades únicos para los filtros
         const countries = await User.distinct('country', { isActive: true });
+        const cities = await User.distinct('city', { isActive: true });
 
         res.status(200).json({
             creatives: usersWithLastPost,
             totalPages: totalPages,
             currentPage: pageNumber,
-            countries: countries.filter(c => c) // Filtrar valores nulos o vacíos
+            countries: countries.filter(c => c), // Filtrar valores nulos o vacíos
+            cities: cities.filter(c => c) // Filtrar valores nulos o vacíos
         });
     } catch (error) {
         console.error('Error al obtener creativos:', error);
