@@ -550,13 +550,11 @@ exports.getUserEducationalOffers = async (req, res) => {
     try {
         const userId = req.user.id;
         const user = await User.findById(userId);
-        console.log(user);
         
         // Buscar ofertas educativas donde el usuario es el publicador
         const educationalOffers = await EducationalOffer.find({ institutionName: user.companyName })
             .lean();
 
-        console.log(educationalOffers);    
         
         return res.status(200).json({ 
             success: true, 
