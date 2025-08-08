@@ -42,6 +42,7 @@ const UserSchema = new mongoose.Schema({
     employeeRange: { type: String },         // Para Empresa mediana-grande y Agencia: rango de empleados (ej. "1-10", "11-50", etc.)
     institutionName: { type: String },       // Para Instituciones: nombre de la institución
     institutionType: { type: String },       // Para Instituciones: tipo de institución
+    institutionOwnership: { type: String, enum: ['publica', 'privada'], default: null }, // Para Instituciones: pública o privada
     agencyName: { type: String },            // Para Agencia: nombre de la compañía o agencia
     agencyServices: { type: String },        // Para Agencia: servicios que ofrece (puede ser una lista en cadena)
     website: { type: String },               // Enlace web o sitio (común para ambos tipos)
